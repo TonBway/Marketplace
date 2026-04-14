@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FarmMarketplace.Api/FarmMarketplace.Api.csproj" />
+    <Project Path="src/FarmMarketplace.Application/FarmMarketplace.Application.csproj" />
+    <Project Path="src/FarmMarketplace.Contracts/FarmMarketplace.Contracts.csproj" />
+    <Project Path="src/FarmMarketplace.Domain/FarmMarketplace.Domain.csproj" />
+    <Project Path="src/FarmMarketplace.Infrastructure/FarmMarketplace.Infrastructure.csproj" />
+  </Folder>
+</Solution>
