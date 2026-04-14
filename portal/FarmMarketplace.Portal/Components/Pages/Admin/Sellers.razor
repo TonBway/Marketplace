@@ -1,0 +1,64 @@
+@page "/admin/sellers"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Seller Management</MudText>
+
+<MudPaper Class="pa-4 mb-3" Outlined="true" Elevation="0">
+    <MudStack Row="true" Spacing="2">
+        <MudTextField @bind-Value="_search" Label="Search" Immediate="true" />
+        <MudSelect T="string" @bind-Value="_status" Label="Status">
+            <MudSelectItem Value="@((string?)null)">All</MudSelectItem>
+            <MudSelectItem Value='@("ACTIVE")'>Active</MudSelectItem>
+            <MudSelectItem Value='@("INACTIVE")'>Inactive</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Filled" OnClick="LoadAsync">Apply</MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Phone</MudTh>
+        <MudTh>Active</MudTh>
+        <MudTh>Verified</MudTh>
+        <MudTh>Subscription</MudTh>
+        <MudTh>Listings</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.FullName</MudTd>
+        <MudTd>@context.Email</MudTd>
+        <MudTd>@context.Phone</MudTd>
+        <MudTd><StatusBadge Status="@(context.IsActive ? "ACTIVE" : "INACTIVE")" /></MudTd>
+        <MudTd><StatusBadge Status="@(context.IsVerified ? "ACTIVE" : "PENDING")" /></MudTd>
+        <MudTd>@(context.SubscriptionStatus ?? "N/A")</MudTd>
+        <MudTd>@context.ActiveListingCount</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/sellers/{context.UserId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => ChangeStatus(context.UserId, "approve"))'>Approve</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => ChangeStatus(context.UserId, "suspend"))'>Suspend</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" OnClick='@(() => ChangeStatus(context.UserId, "reactivate"))'>Reactivate</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminSellerVm> _rows = [];
+    private string _search = string.Empty;
+    private string _status = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _rows = await ApiClient.GetAdminSellersAsync(_search, _status, CancellationToken.None);
+    }
+
+    private async Task ChangeStatus(Guid userId, string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/sellers/{userId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        await LoadAsync();
+    }
+}

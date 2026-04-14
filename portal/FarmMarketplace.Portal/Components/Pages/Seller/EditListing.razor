@@ -1,0 +1,104 @@
+@page "/seller/listings/{ListingId:guid}/edit"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Edit Listing</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Title" Label="Title" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudNumericField @bind-Value="_model.Price" Label="Price" Required="true" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_model.Description" Label="Description" Lines="3" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.Quantity" Label="Quantity" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.RegionId" Label="Region Id" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.DistrictId" Label="District Id" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Spacing="2" Class="mt-3">
+            <MudButton OnClick="Save">Save</MudButton>
+            <MudButton Variant="Variant.Outlined" OnClick='@(() => Navigation.NavigateTo("/seller/listings"))'>Back</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-3" Outlined="true">
+        <MudText Typo="Typo.h6">Listing Images</MudText>
+        <InputFile OnChange="OnFileSelected" />
+        <MudButton Class="mt-2" Variant="Variant.Outlined" OnClick="UploadSelected" Disabled="_selectedFile is null">Upload Image</MudButton>
+
+        @if (_detail is not null)
+        {
+            <MudGrid Class="mt-3">
+                @foreach (var image in _detail.Images)
+                {
+                    <MudItem xs="12" sm="6" md="4"><MudImage Src="@image.ImageUrl" Style="width:100%;" /></MudItem>
+                }
+            </MudGrid>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid ListingId { get; set; }
+
+    private bool _loading = true;
+    private UpdateListingVm _model = new();
+    private ListingDetailVm? _detail;
+    private IBrowserFile? _selectedFile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _detail = await ApiClient.GetMyListingAsync(ListingId, CancellationToken.None);
+        if (_detail is not null)
+        {
+            _model = new UpdateListingVm
+            {
+                Title = _detail.Title,
+                Description = _detail.Description,
+                CategoryId = _detail.CategoryId,
+                ProductTypeId = _detail.ProductTypeId,
+                Price = _detail.Price,
+                Quantity = _detail.Quantity,
+                UnitId = _detail.UnitId,
+                RegionId = _detail.RegionId,
+                DistrictId = _detail.DistrictId,
+                IsLivestock = _detail.IsLivestock
+            };
+        }
+
+        _loading = false;
+    }
+
+    private async Task Save()
+    {
+        await ApiClient.UpdateListingAsync(ListingId, _model, CancellationToken.None);
+        Navigation.NavigateTo("/seller/listings");
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+    }
+
+    private async Task UploadSelected()
+    {
+        if (_selectedFile is null)
+        {
+            return;
+        }
+
+        await using var stream = _selectedFile.OpenReadStream(5 * 1024 * 1024);
+        await ApiClient.UploadListingImageAsync(ListingId, stream, _selectedFile.Name, _selectedFile.ContentType, false, 0, CancellationToken.None);
+        await LoadAsync();
+    }
+}

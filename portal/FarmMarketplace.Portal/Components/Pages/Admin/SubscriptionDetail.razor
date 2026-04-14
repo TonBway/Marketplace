@@ -1,0 +1,46 @@
+@page "/admin/subscriptions/{SubscriptionId:guid}"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Subscription Detail</MudText>
+
+@if (_detail is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudText Typo="Typo.h6">@_detail.SellerName</MudText>
+        <MudText Typo="Typo.body2">Plan: @_detail.PlanName (@_detail.PlanId)</MudText>
+        <MudText Typo="Typo.body2">Status: @_detail.StatusCode</MudText>
+        <MudDivider Class="my-3" />
+        <MudGrid>
+            <MudItem xs="12" md="4"><MudText><b>Start:</b> @_detail.StartDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudText></MudItem>
+            <MudItem xs="12" md="4"><MudText><b>End:</b> @_detail.EndDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudText></MudItem>
+            <MudItem xs="12" md="4"><MudText><b>Total Paid:</b> @_detail.TotalPaidAmount</MudText></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Spacing="1" Class="mt-3">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act("activate"))'>Activate</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act("suspend"))'>Suspend</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act("cancel"))'>Cancel</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid SubscriptionId { get; set; }
+
+    private AdminSubscriptionDetailVm? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _detail = await ApiClient.GetAdminSubscriptionAsync(SubscriptionId, CancellationToken.None);
+    }
+
+    private async Task Act(string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/subscriptions/{SubscriptionId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _detail = await ApiClient.GetAdminSubscriptionAsync(SubscriptionId, CancellationToken.None);
+    }
+}

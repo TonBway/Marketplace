@@ -1,0 +1,43 @@
+@page "/admin/buyers"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Buyer Management</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Favourites</MudTh>
+        <MudTh>Enquiries</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.FullName</MudTd>
+        <MudTd>@context.Email</MudTd>
+        <MudTd><StatusBadge Status="@(context.IsActive ? "ACTIVE" : "INACTIVE")" /></MudTd>
+        <MudTd>@context.FavoritesCount</MudTd>
+        <MudTd>@context.EnquiryCount</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/buyers/{context.UserId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => ChangeStatus(context.UserId, "suspend"))'>Suspend</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" OnClick='@(() => ChangeStatus(context.UserId, "reactivate"))'>Reactivate</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminBuyerVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetAdminBuyersAsync(null, null, CancellationToken.None);
+    }
+
+    private async Task ChangeStatus(Guid userId, string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/buyers/{userId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _rows = await ApiClient.GetAdminBuyersAsync(null, null, CancellationToken.None);
+    }
+}

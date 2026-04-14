@@ -301,6 +301,90 @@ order by l.created_at_utc desc";
         return rows.ToList();
     }
 
+    public async Task<ListingDetailResponse?> GetMyListingAsync(Guid sellerUserId, Guid listingId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.description as Description,
+       l.category_id as CategoryId, l.product_type_id as ProductTypeId, l.price as Price, l.quantity as Quantity,
+       l.unit_id as UnitId, l.region_id as RegionId, l.district_id as DistrictId, l.is_livestock as IsLivestock,
+       ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc, l.expires_at_utc as ExpiresAtUtc
+from marketplace.listings l
+inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
+where l.listing_id = @ListingId and l.seller_user_id = @SellerUserId";
+
+        var core = await connection.QuerySingleOrDefaultAsync<ListingDetailCore>(new CommandDefinition(sql, new { ListingId = listingId, SellerUserId = sellerUserId }, cancellationToken: cancellationToken));
+        if (core is null)
+        {
+            return null;
+        }
+
+        const string imageSql = @"
+select image_url as ImageUrl, is_primary as IsPrimary, sort_order as SortOrder
+from marketplace.listing_images
+where listing_id = @ListingId
+order by sort_order";
+        var images = (await connection.QueryAsync<ListingImageResponse>(new CommandDefinition(imageSql, new { ListingId = listingId }, cancellationToken: cancellationToken))).ToList();
+
+        return new ListingDetailResponse(
+            core.ListingId,
+            core.SellerUserId,
+            core.Title,
+            core.Description,
+            core.CategoryId,
+            core.ProductTypeId,
+            core.Price,
+            core.Quantity,
+            core.UnitId,
+            core.RegionId,
+            core.DistrictId,
+            core.IsLivestock,
+            core.StatusCode,
+            core.CreatedAtUtc,
+            core.ExpiresAtUtc,
+            images);
+    }
+
+    public async Task UpdateAsync(Guid sellerUserId, Guid listingId, UpdateListingRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+update marketplace.listings
+set title = @Title,
+    description = @Description,
+    category_id = @CategoryId,
+    product_type_id = @ProductTypeId,
+    price = @Price,
+    quantity = @Quantity,
+    unit_id = @UnitId,
+    region_id = @RegionId,
+    district_id = @DistrictId,
+    is_livestock = @IsLivestock,
+    updated_at_utc = now()
+where listing_id = @ListingId and seller_user_id = @SellerUserId";
+
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            ListingId = listingId,
+            SellerUserId = sellerUserId,
+            request.Title,
+            request.Description,
+            request.CategoryId,
+            request.ProductTypeId,
+            request.Price,
+            request.Quantity,
+            request.UnitId,
+            request.RegionId,
+            request.DistrictId,
+            request.IsLivestock
+        }, cancellationToken: cancellationToken));
+
+        if (affected == 0)
+        {
+            throw new InvalidOperationException("Listing not found.");
+        }
+    }
+
     public async Task UpdateStatusAsync(Guid sellerUserId, Guid listingId, UpdateListingStatusRequest request, CancellationToken cancellationToken)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -362,6 +446,23 @@ values (gen_random_uuid(), @ListingId, @ImageUrl, @IsPrimary, @SortOrder, now())
             Payload = "{\"imageUrl\":\"" + request.ImageUrl + "\"}"
         }, cancellationToken: cancellationToken));
     }
+
+    private sealed record ListingDetailCore(
+        Guid ListingId,
+        Guid SellerUserId,
+        string Title,
+        string Description,
+        int CategoryId,
+        int ProductTypeId,
+        decimal Price,
+        decimal Quantity,
+        int UnitId,
+        int RegionId,
+        int DistrictId,
+        bool IsLivestock,
+        string StatusCode,
+        DateTime CreatedAtUtc,
+        DateTime? ExpiresAtUtc);
 }
 
 public sealed class SubscriptionService : ISubscriptionService

@@ -1,0 +1,30 @@
+@page "/account"
+@attribute [Authorize]
+@inject AuthPortalService AuthPortalService
+
+<PageTitle>My Account</PageTitle>
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">My Account</MudText>
+
+@if (_user is null)
+{
+    <MudSkeleton Height="120px" Width="100%" />
+}
+else
+{
+    <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+        <MudText><b>Name:</b> @_user.FullName</MudText>
+        <MudText><b>Email:</b> @_user.Email</MudText>
+        <MudText><b>Role:</b> @_user.RoleCode</MudText>
+        <MudText><b>User Id:</b> @_user.UserId</MudText>
+    </MudPaper>
+}
+
+@code {
+    private PortalUserInfo? _user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _user = await AuthPortalService.GetCurrentUserAsync();
+    }
+}

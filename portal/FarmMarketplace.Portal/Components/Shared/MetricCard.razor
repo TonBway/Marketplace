@@ -1,0 +1,14 @@
+<MudPaper Class="pa-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Title</MudText>
+    <MudText Typo="Typo.h4" Class="mt-1">@Value</MudText>
+    @if (!string.IsNullOrWhiteSpace(Subtext))
+    {
+        <MudText Typo="Typo.caption" Color="Color.Tertiary">@Subtext</MudText>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string? Subtext { get; set; }
+}

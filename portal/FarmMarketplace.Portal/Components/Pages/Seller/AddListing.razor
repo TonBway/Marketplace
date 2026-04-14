@@ -1,0 +1,41 @@
+@page "/seller/listings/new"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Add Listing</MudText>
+
+<MudPaper Class="pa-4" Outlined="true" Elevation="0">
+    <MudForm @ref="_form" Model="_model" @bind-IsValid="_isValid">
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Title" Label="Title" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Price" Label="Price" Required="true" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_model.Description" Label="Description" Lines="3" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.Quantity" Label="Quantity" Required="true" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.RegionId" Label="Region Id" Required="true" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_model.DistrictId" Label="District Id" Required="true" /></MudItem>
+        </MudGrid>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="OnSave">Create Listing</MudButton>
+    </MudForm>
+</MudPaper>
+
+@code {
+    private MudForm? _form;
+    private bool _isValid;
+    private readonly CreateListingVm _model = new();
+
+    private async Task OnSave()
+    {
+        await _form!.ValidateAsync();
+        if (!_isValid)
+        {
+            return;
+        }
+
+        var listingId = await ApiClient.CreateListingAsync(_model, CancellationToken.None);
+        if (listingId.HasValue)
+        {
+            Navigation.NavigateTo("/seller/listings");
+        }
+    }
+}

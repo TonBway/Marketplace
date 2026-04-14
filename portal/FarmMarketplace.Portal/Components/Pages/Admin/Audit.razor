@@ -1,0 +1,69 @@
+@page "/admin/audit"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Audit and Moderation</MudText>
+
+<MudTabs>
+    <MudTabPanel Text="Audit Logs">
+        <MudTable Items="_auditLogs" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Action</MudTh>
+                <MudTh>Entity</MudTh>
+                <MudTh>Entity Id</MudTh>
+                <MudTh>When</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Action</MudTd>
+                <MudTd>@context.EntityType</MudTd>
+                <MudTd>@context.EntityId</MudTd>
+                <MudTd>@context.OccurredAtUtc.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Moderation Actions">
+        <MudTable Items="_moderation" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Target</MudTh>
+                <MudTh>Action</MudTh>
+                <MudTh>Reason</MudTh>
+                <MudTh>When</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.TargetType / @context.TargetId</MudTd>
+                <MudTd>@context.ActionCode</MudTd>
+                <MudTd>@context.Reason</MudTd>
+                <MudTd>@context.ActedAtUtc.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Admin Notes">
+        <MudTable Items="_notes" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Target User</MudTh>
+                <MudTh>Note</MudTh>
+                <MudTh>When</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.TargetUserId</MudTd>
+                <MudTd>@context.Note</MudTd>
+                <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private IReadOnlyList<AdminAuditLogVm> _auditLogs = [];
+    private IReadOnlyList<AdminModerationActionVm> _moderation = [];
+    private IReadOnlyList<AdminNoteVm> _notes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _auditLogs = await ApiClient.GetAuditLogsAsync(CancellationToken.None);
+        _moderation = await ApiClient.GetModerationActionsAsync(CancellationToken.None);
+        _notes = await ApiClient.GetAdminNotesAsync(CancellationToken.None);
+    }
+}

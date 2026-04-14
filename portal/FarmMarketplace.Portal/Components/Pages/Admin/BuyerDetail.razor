@@ -1,0 +1,49 @@
+@page "/admin/buyers/{UserId:guid}"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Buyer Detail</MudText>
+
+@if (_detail is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudText Typo="Typo.h6">@_detail.FullName</MudText>
+        <MudText Typo="Typo.body2">@_detail.Email</MudText>
+        <MudText Typo="Typo.body2">@_detail.Phone</MudText>
+        <MudDivider Class="my-3" />
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudText><b>Status:</b> <StatusBadge Status="@(_detail.IsActive ? "ACTIVE" : "INACTIVE")" /></MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Display Name:</b> @_detail.DisplayName</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Region/District:</b> @_detail.RegionId / @_detail.DistrictId</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>SMS/Push:</b> @_detail.ReceiveSms / @_detail.ReceivePush</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Favorites:</b> @_detail.FavoritesCount</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Enquiries:</b> @_detail.EnquiryCount</MudText></MudItem>
+            <MudItem xs="12"><MudText><b>Created:</b> @_detail.CreatedAtUtc.ToLocalTime()</MudText></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Spacing="1" Class="mt-3">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act("suspend"))'>Suspend</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" OnClick='@(() => Act("reactivate"))'>Reactivate</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+
+    private AdminBuyerDetailVm? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _detail = await ApiClient.GetAdminBuyerAsync(UserId, CancellationToken.None);
+    }
+
+    private async Task Act(string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/buyers/{UserId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _detail = await ApiClient.GetAdminBuyerAsync(UserId, CancellationToken.None);
+    }
+}

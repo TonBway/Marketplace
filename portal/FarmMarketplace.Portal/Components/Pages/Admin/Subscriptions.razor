@@ -1,0 +1,44 @@
+@page "/admin/subscriptions"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Subscriptions</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Seller</MudTh>
+        <MudTh>Plan</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Start</MudTh>
+        <MudTh>End</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.SellerName</MudTd>
+        <MudTd>@context.PlanName</MudTd>
+        <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
+        <MudTd>@context.StartDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudTd>
+        <MudTd>@context.EndDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/subscriptions/{context.SellerSubscriptionId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.SellerSubscriptionId, "activate"))'>Activate</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act(context.SellerSubscriptionId, "suspend"))'>Suspend</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.SellerSubscriptionId, "cancel"))'>Cancel</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminSubscriptionVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetAdminSubscriptionsAsync(null, CancellationToken.None);
+    }
+
+    private async Task Act(Guid id, string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/subscriptions/{id}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _rows = await ApiClient.GetAdminSubscriptionsAsync(null, CancellationToken.None);
+    }
+}

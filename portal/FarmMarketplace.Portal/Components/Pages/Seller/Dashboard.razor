@@ -1,0 +1,37 @@
+@page "/seller/dashboard"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+
+<PageTitle>Seller Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Seller Dashboard</MudText>
+
+@if (_summary is null)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <div class="fm-grid-cards">
+        <MetricCard Title="Active Listings" Value="@_summary.ActiveListings.ToString()" />
+        <MetricCard Title="Received Enquiries" Value="@_summary.ReceivedEnquiries.ToString()" />
+        <MetricCard Title="Active Plan" Value="@(_summary.ActivePlanName ?? "None")" />
+        <MetricCard Title="Subscription Expiry" Value="@(_summary.SubscriptionEndDateUtc?.ToLocalTime().ToString("yyyy-MM-dd") ?? "N/A")" />
+    </div>
+
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+        <MudButton Href="/seller/listings/new" Variant="Variant.Filled" Color="Color.Primary">Add Listing</MudButton>
+        <MudButton Href="/seller/listings" Variant="Variant.Outlined" Color="Color.Primary">View Listings</MudButton>
+        <MudButton Href="/seller/profile" Variant="Variant.Outlined" Color="Color.Primary">Edit Profile</MudButton>
+        <MudButton Href="/seller/subscription" Variant="Variant.Outlined" Color="Color.Primary">View Subscription</MudButton>
+    </MudStack>
+}
+
+@code {
+    private SellerDashboardSummaryVm? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await ApiClient.GetSellerDashboardSummaryAsync(CancellationToken.None);
+    }
+}

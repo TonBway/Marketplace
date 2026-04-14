@@ -1,0 +1,44 @@
+@page "/admin/listings"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Listing Moderation</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Title</MudTh>
+        <MudTh>Seller</MudTh>
+        <MudTh>Price</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Title</MudTd>
+        <MudTd>@context.SellerName</MudTd>
+        <MudTd>@context.Price</MudTd>
+        <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
+        <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/listings/{context.ListingId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.ListingId, "approve"))'>Approve</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.ListingId, "reject"))'>Reject</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act(context.ListingId, "suspend"))'>Suspend</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminListingVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetAdminListingsAsync(null, null, CancellationToken.None);
+    }
+
+    private async Task Act(Guid listingId, string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/listings/{listingId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal moderation" }, CancellationToken.None);
+        _rows = await ApiClient.GetAdminListingsAsync(null, null, CancellationToken.None);
+    }
+}

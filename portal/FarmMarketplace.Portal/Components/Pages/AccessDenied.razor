@@ -1,0 +1,11 @@
+@page "/access-denied"
+@attribute [AllowAnonymous]
+
+<PageTitle>Access Denied</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-12">
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Filled">
+        You do not have permission to access this page.
+    </MudAlert>
+    <MudButton Href="/login" Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3">Go to Login</MudButton>
+</MudContainer>

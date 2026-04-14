@@ -1,0 +1,46 @@
+@page "/admin/enquiries/{EnquiryId:guid}"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Enquiry Detail</MudText>
+
+@if (_detail is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Outlined="true">
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudText><b>Enquiry:</b> @_detail.EnquiryId</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Status:</b> @_detail.StatusCode</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Listing:</b> @_detail.ListingId</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Buyer:</b> @_detail.BuyerUserId</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Seller:</b> @_detail.SellerUserId</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Created:</b> @_detail.CreatedAtUtc.ToLocalTime()</MudText></MudItem>
+            <MudItem xs="12" md="6"><MudText><b>Updated:</b> @_detail.UpdatedAtUtc?.ToLocalTime()</MudText></MudItem>
+            <MudItem xs="12"><MudText><b>Message:</b></MudText><MudText>@_detail.Message</MudText></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Spacing="1" Class="mt-3">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act("review"))'>Mark Reviewed</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act("close"))'>Close</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid EnquiryId { get; set; }
+
+    private AdminEnquiryDetailVm? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _detail = await ApiClient.GetAdminEnquiryAsync(EnquiryId, CancellationToken.None);
+    }
+
+    private async Task Act(string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/enquiries/{EnquiryId}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _detail = await ApiClient.GetAdminEnquiryAsync(EnquiryId, CancellationToken.None);
+    }
+}

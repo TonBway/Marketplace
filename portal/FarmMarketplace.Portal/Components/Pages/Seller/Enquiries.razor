@@ -1,0 +1,31 @@
+@page "/seller/enquiries"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Received Enquiries</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Enquiry</MudTh>
+        <MudTh>Listing</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Message</MudTh>
+        <MudTh>Created</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.EnquiryId</MudTd>
+        <MudTd>@context.ListingId</MudTd>
+        <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
+        <MudTd>@context.Message</MudTd>
+        <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<EnquiryVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetReceivedEnquiriesAsync(CancellationToken.None);
+    }
+}

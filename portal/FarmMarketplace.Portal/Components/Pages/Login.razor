@@ -1,0 +1,68 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject AuthPortalService AuthPortalService
+@inject NavigationManager Navigation
+
+<PageTitle>Portal Login</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-12">
+    <MudPaper Class="pa-6" Elevation="2">
+        <MudText Typo="Typo.h5">Sign in to Farm Marketplace Portal</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Use your existing marketplace credentials.</MudText>
+
+        <MudForm @ref="_form" Model="_model" @bind-IsValid="_isValid">
+            <MudTextField @bind-Value="_model.EmailOrPhone" Label="Email or Phone" Required="true" Margin="Margin.Dense" />
+            <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Margin="Margin.Dense" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="_loading" OnClick="OnLogin" Class="mt-4">Sign In</MudButton>
+        </MudForm>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm? _form;
+    private readonly LoginModel _model = new();
+    private bool _isValid;
+    private bool _loading;
+    private string? _error;
+
+    private async Task OnLogin()
+    {
+        _error = null;
+        await _form!.ValidateAsync();
+        if (!_isValid)
+        {
+            return;
+        }
+
+        _loading = true;
+        var roleCode = await AuthPortalService.LoginAsync(new PortalLoginRequest(_model.EmailOrPhone, _model.Password), CancellationToken.None);
+        _loading = false;
+
+        if (string.IsNullOrWhiteSpace(roleCode))
+        {
+            _error = "Invalid login. Please check your credentials.";
+            return;
+        }
+
+        var target = roleCode.ToUpperInvariant() switch
+        {
+            "SELLER" => "/seller/dashboard",
+            "ADMIN" => "/admin/dashboard",
+            "SUPER_ADMIN" => "/admin/dashboard",
+            _ => "/access-denied"
+        };
+
+        Navigation.NavigateTo(target, forceLoad: true);
+    }
+
+    private sealed class LoginModel
+    {
+        public string EmailOrPhone { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

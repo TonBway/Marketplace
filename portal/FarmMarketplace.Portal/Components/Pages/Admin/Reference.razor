@@ -1,0 +1,114 @@
+@page "/admin/reference"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Reference Data</MudText>
+
+<MudStack Row="true" Spacing="2" Class="mb-3">
+    <MudSelect T="string" @bind-Value="_type" Label="Reference Type">
+        <MudSelectItem Value='@("regions")'>Regions</MudSelectItem>
+        <MudSelectItem Value='@("districts")'>Districts</MudSelectItem>
+        <MudSelectItem Value='@("categories")'>Categories</MudSelectItem>
+        <MudSelectItem Value='@("product-types")'>Product Types</MudSelectItem>
+        <MudSelectItem Value='@("units")'>Units</MudSelectItem>
+        <MudSelectItem Value='@("contact-modes")'>Contact Modes</MudSelectItem>
+        <MudSelectItem Value='@("payment-methods")'>Payment Methods</MudSelectItem>
+    </MudSelect>
+    <MudButton OnClick="Load">Load</MudButton>
+</MudStack>
+
+<MudPaper Class="pa-4 mb-3" Outlined="true">
+    <MudStack Row="true" Spacing="2">
+        <MudTextField @bind-Value="_newCode" Label="Code (optional)" />
+        <MudTextField @bind-Value="_newName" Label="Name" />
+        <MudButton OnClick="Create">Add</MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_items" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Code</MudTh>
+        <MudTh>Name</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Id</MudTd>
+        <MudTd>@context.Code</MudTd>
+        <MudTd>@context.Name</MudTd>
+        <MudTd><StatusBadge Status="@(context.IsActive ? "ACTIVE" : "INACTIVE")" /></MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => BeginEdit(context))'>Edit</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Deactivate(context.Id))'>Deactivate</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@if (_editing is not null)
+{
+    <MudPaper Class="pa-4 mt-3" Outlined="true">
+        <MudText Typo="Typo.h6">Edit Item</MudText>
+        <MudStack Row="true" Spacing="2">
+            <MudTextField @bind-Value="_editCode" Label="Code" />
+            <MudTextField @bind-Value="_editName" Label="Name" />
+            <MudButton OnClick="SaveEdit">Save</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private string _type = "regions";
+    private IReadOnlyList<AdminReferenceItemVm> _items = [];
+    private string _newCode = string.Empty;
+    private string _newName = string.Empty;
+
+    private AdminReferenceItemVm? _editing;
+    private string _editCode = string.Empty;
+    private string _editName = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _items = await ApiClient.GetReferenceAsync(_type, CancellationToken.None);
+    }
+
+    private async Task Create()
+    {
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            return;
+        }
+
+        await ApiClient.PostAsync($"/api/admin/reference/{_type}", new UpsertReferenceItemVm(string.IsNullOrWhiteSpace(_newCode) ? null : _newCode, _newName), CancellationToken.None);
+        _newCode = string.Empty;
+        _newName = string.Empty;
+        await Load();
+    }
+
+    private void BeginEdit(AdminReferenceItemVm item)
+    {
+        _editing = item;
+        _editCode = item.Code;
+        _editName = item.Name;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        await ApiClient.PutAsync($"/api/admin/reference/{_type}/{_editing.Id}", new UpsertReferenceItemVm(_editCode, _editName), CancellationToken.None);
+        _editing = null;
+        await Load();
+    }
+
+    private async Task Deactivate(int id)
+    {
+        await ApiClient.PatchAsync($"/api/admin/reference/{_type}/{id}/deactivate", new { }, CancellationToken.None);
+        await Load();
+    }
+}

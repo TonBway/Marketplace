@@ -12,6 +12,18 @@ public sealed record CreateListingRequest(
     int DistrictId,
     bool IsLivestock);
 
+public sealed record UpdateListingRequest(
+    string Title,
+    string Description,
+    int CategoryId,
+    int ProductTypeId,
+    decimal Price,
+    decimal Quantity,
+    int UnitId,
+    int RegionId,
+    int DistrictId,
+    bool IsLivestock);
+
 public sealed record UpdateListingStatusRequest(string StatusCode);
 
 public sealed record ListingSummaryResponse(
@@ -24,5 +36,25 @@ public sealed record ListingSummaryResponse(
     string StatusCode,
     DateTime CreatedAtUtc,
     DateTime? ExpiresAtUtc);
+
+public sealed record ListingImageResponse(string ImageUrl, bool IsPrimary, int SortOrder);
+
+public sealed record ListingDetailResponse(
+    Guid ListingId,
+    Guid SellerUserId,
+    string Title,
+    string Description,
+    int CategoryId,
+    int ProductTypeId,
+    decimal Price,
+    decimal Quantity,
+    int UnitId,
+    int RegionId,
+    int DistrictId,
+    bool IsLivestock,
+    string StatusCode,
+    DateTime CreatedAtUtc,
+    DateTime? ExpiresAtUtc,
+    IReadOnlyList<ListingImageResponse> Images);
 
 public sealed record UploadListingImageRequest(Guid ListingId, string ImageUrl, bool IsPrimary, int SortOrder);

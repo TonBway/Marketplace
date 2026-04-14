@@ -1,0 +1,72 @@
+@page "/seller/profile"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">My Profile</MudText>
+
+@if (_profile is null)
+{
+    <MudAlert Severity="Severity.Info">Profile not created yet.</MudAlert>
+}
+else
+{
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+            WhatsApp and cover image fields are collected for future API support.
+        </MudAlert>
+
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_edit.BusinessName" Label="Business Name" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_displayName" Label="Display Name (placeholder)" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_edit.Description" Label="Bio" Lines="3" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_edit.RegionId" Label="Region Id" /></MudItem>
+            <MudItem xs="12" md="4"><MudNumericField @bind-Value="_edit.DistrictId" Label="District Id" /></MudItem>
+            <MudItem xs="12" md="4"><MudTextField @bind-Value="_edit.ContactMode" Label="Contact Preference" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_whatsAppNumber" Label="WhatsApp Number (placeholder)" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_edit.ProfileImageUrl" Label="Profile Image URL" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_coverImageUrl" Label="Cover Image URL (placeholder)" /></MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-3">
+            <MudButton OnClick="Save">Save Profile</MudButton>
+            <StatusBadge Status="@(_profile.IsVerified ? "ACTIVE" : "PENDING")" />
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private SellerProfileVm? _profile;
+    private UpdateSellerProfileVm _edit = new();
+    private string _displayName = string.Empty;
+    private string _whatsAppNumber = string.Empty;
+    private string _coverImageUrl = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _profile = await ApiClient.GetSellerProfileAsync(CancellationToken.None);
+        if (_profile is not null)
+        {
+            _edit = new UpdateSellerProfileVm
+            {
+                BusinessName = _profile.BusinessName,
+                Description = _profile.Description,
+                RegionId = _profile.RegionId,
+                DistrictId = _profile.DistrictId,
+                ContactMode = _profile.ContactMode,
+                ProfileImageUrl = _profile.ProfileImageUrl
+            };
+            _displayName = _profile.BusinessName;
+        }
+    }
+
+    private async Task Save()
+    {
+        await ApiClient.UpdateSellerProfileAsync(_edit, CancellationToken.None);
+        await LoadAsync();
+    }
+}

@@ -5,6 +5,7 @@ Production-structured starter for:
 - Buyer Flutter app
 - Shared ASP.NET Core Web API
 - Shared PostgreSQL database
+- Standalone Blazor Web Portal
 
 ## Workspace Layout
 
@@ -18,6 +19,9 @@ Production-structured starter for:
 - `database/`
   - `migrations/001_init_marketplace.sql`
   - `seeds/001_seed_reference_data.sql`
+- `portal/`
+   - `FarmMarketplace.Portal.slnx`
+   - `FarmMarketplace.Portal/`
 - `mobile/`
   - `FarmMarketplace.SellerApp/`
   - `FarmMarketplace.BuyerApp/`
@@ -105,14 +109,22 @@ Production-structured starter for:
 1. Open `mobile/shared_api`.
 2. Run `flutter pub get`.
 
-### 4. Seller App
+### 4. Portal (Standalone)
+
+1. Open `portal/`.
+2. Run:
+   - `dotnet restore FarmMarketplace.Portal.slnx`
+   - `dotnet build FarmMarketplace.Portal.slnx`
+   - `dotnet run --project FarmMarketplace.Portal/FarmMarketplace.Portal.csproj`
+
+### 5. Seller App
 
 1. Open `mobile/FarmMarketplace.SellerApp`.
 2. Run `flutter pub get`.
 3. Run with API URL:
    - `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000`
 
-### 5. Buyer App
+### 6. Buyer App
 
 1. Open `mobile/FarmMarketplace.BuyerApp`.
 2. Run `flutter pub get`.

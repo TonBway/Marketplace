@@ -1,0 +1,27 @@
+@page "/admin/settings"
+@attribute [Authorize(Roles = "SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">System Settings</MudText>
+
+<MudTable Items="_settings" Dense="true" Hover="true">
+    <HeaderContent>
+        <MudTh>Key</MudTh>
+        <MudTh>Value</MudTh>
+        <MudTh>Updated</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Key</MudTd>
+        <MudTd>@context.Value</MudTd>
+        <MudTd>@context.UpdatedAtUtc.ToLocalTime()</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminSettingVm> _settings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await ApiClient.GetAdminSettingsAsync(CancellationToken.None);
+    }
+}

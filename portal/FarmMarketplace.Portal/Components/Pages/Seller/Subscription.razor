@@ -1,0 +1,28 @@
+@page "/seller/subscription"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">My Subscription</MudText>
+
+@if (_subscription is null)
+{
+    <MudAlert Severity="Severity.Info">No active subscription found.</MudAlert>
+}
+else
+{
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+        <MudText><b>Plan:</b> @_subscription.PlanName</MudText>
+        <MudText><b>Status:</b> @_subscription.StatusCode</MudText>
+        <MudText><b>Start:</b> @_subscription.StartDateUtc.ToLocalTime()</MudText>
+        <MudText><b>End:</b> @_subscription.EndDateUtc.ToLocalTime()</MudText>
+    </MudPaper>
+}
+
+@code {
+    private SubscriptionVm? _subscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _subscription = await ApiClient.GetActiveSubscriptionAsync(CancellationToken.None);
+    }
+}

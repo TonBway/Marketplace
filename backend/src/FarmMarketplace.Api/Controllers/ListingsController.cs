@@ -42,6 +42,22 @@ public sealed class ListingsController : ControllerBase
         return Ok(listings);
     }
 
+    [HttpGet("my/{listingId:guid}")]
+    [Authorize(Roles = "SELLER")]
+    public async Task<ActionResult<ListingDetailResponse>> GetMyListing(Guid listingId, CancellationToken cancellationToken)
+    {
+        var listing = await _service.GetMyListingAsync(User.GetRequiredUserId(), listingId, cancellationToken);
+        return listing is null ? NotFound() : Ok(listing);
+    }
+
+    [HttpPut("{listingId:guid}")]
+    [Authorize(Roles = "SELLER")]
+    public async Task<IActionResult> Update(Guid listingId, [FromBody] UpdateListingRequest request, CancellationToken cancellationToken)
+    {
+        await _service.UpdateAsync(User.GetRequiredUserId(), listingId, request, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPatch("{listingId:guid}/status")]
     [Authorize(Roles = "SELLER")]
     public async Task<IActionResult> UpdateStatus(Guid listingId, [FromBody] UpdateListingStatusRequest request, CancellationToken cancellationToken)

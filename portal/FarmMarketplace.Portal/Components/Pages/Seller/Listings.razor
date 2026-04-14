@@ -1,0 +1,44 @@
+@page "/seller/listings"
+@attribute [Authorize(Roles = "SELLER")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">My Listings</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Title</MudTh>
+        <MudTh>Price</MudTh>
+        <MudTh>Qty</MudTh>
+        <MudTh>Unit</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Title</MudTd>
+        <MudTd>@context.Price</MudTd>
+        <MudTd>@context.Quantity</MudTd>
+        <MudTd>@context.UnitName</MudTd>
+        <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/seller/listings/{context.ListingId}/edit")'>Edit</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => SetStatus(context.ListingId, "PUBLISHED"))'>Publish</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => SetStatus(context.ListingId, "UNPUBLISHED"))'>Unpublish</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => SetStatus(context.ListingId, "SOLD_OUT"))'>Sold Out</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<ListingSummaryVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetMyListingsAsync(null, CancellationToken.None);
+    }
+
+    private async Task SetStatus(Guid listingId, string statusCode)
+    {
+        await ApiClient.PatchAsync($"/api/listings/{listingId}/status", new { StatusCode = statusCode }, CancellationToken.None);
+        _rows = await ApiClient.GetMyListingsAsync(null, CancellationToken.None);
+    }
+}

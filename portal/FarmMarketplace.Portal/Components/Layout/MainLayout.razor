@@ -1,0 +1,45 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject AuthPortalService AuthPortalService
+
+<MudLayout>
+    <MudDrawer Elevation="1" Variant="DrawerVariant.Mini" Open="true" Class="fm-drawer">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Farm Marketplace</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudAppBar Elevation="0" Class="fm-topbar">
+            <MudText Typo="Typo.h6">Portal</MudText>
+            <MudSpacer />
+            <AuthorizeView>
+                <Authorized>
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">@context.User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value</MudChip>
+                    <MudMenu Label="@context.User.Identity?.Name" EndIcon="@Icons.Material.Filled.ArrowDropDown">
+                        <MudMenuItem OnClick="OnProfile">My Account</MudMenuItem>
+                        <MudMenuItem OnClick="OnLogout">Sign Out</MudMenuItem>
+                    </MudMenu>
+                </Authorized>
+            </AuthorizeView>
+        </MudAppBar>
+
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private void OnProfile()
+    {
+        Navigation.NavigateTo("/account");
+    }
+
+    private async Task OnLogout()
+    {
+        await AuthPortalService.LogoutAsync(CancellationToken.None);
+        Navigation.NavigateTo("/login", true);
+    }
+}

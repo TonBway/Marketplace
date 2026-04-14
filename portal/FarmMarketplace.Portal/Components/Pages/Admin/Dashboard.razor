@@ -1,0 +1,52 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Admin Dashboard</MudText>
+
+@if (_summary is null)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <div class="fm-grid-cards">
+        <MetricCard Title="Total Sellers" Value="@_summary.TotalSellers.ToString()" />
+        <MetricCard Title="Total Buyers" Value="@_summary.TotalBuyers.ToString()" />
+        <MetricCard Title="Active Listings" Value="@_summary.TotalActiveListings.ToString()" />
+        <MetricCard Title="Pending Listings" Value="@_summary.TotalPendingListings.ToString()" />
+        <MetricCard Title="Sold Out Listings" Value="@_summary.TotalSoldOutListings.ToString()" />
+        <MetricCard Title="Active Subscriptions" Value="@_summary.TotalActiveSubscriptions.ToString()" />
+        <MetricCard Title="Expiring Soon" Value="@_summary.SubscriptionsExpiringSoon.ToString()" Subtext="Within 7 days" />
+        <MetricCard Title="Total Enquiries" Value="@_summary.TotalEnquiries.ToString()" />
+    </div>
+
+    <MudPaper Class="pa-4 mt-4" Outlined="true" Elevation="0">
+        <MudText Typo="Typo.h6" Class="mb-2">Recent Activity</MudText>
+        <MudTable Items="_activity" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Type</MudTh>
+                <MudTh>Title</MudTh>
+                <MudTh>When</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.ActivityType</MudTd>
+                <MudTd>@context.Title</MudTd>
+                <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    private AdminDashboardSummaryVm? _summary;
+    private IReadOnlyList<RecentActivityVm> _activity = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await ApiClient.GetAdminDashboardSummaryAsync(CancellationToken.None);
+        _activity = await ApiClient.GetRecentActivityAsync(CancellationToken.None);
+    }
+}

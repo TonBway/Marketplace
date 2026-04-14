@@ -1,0 +1,111 @@
+@page "/admin/payments"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Payments and Invoices</MudText>
+
+<MudTabs>
+    <MudTabPanel Text="Payments">
+        <MudTable Items="_payments" Dense="true" Hover="true" RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Payment Id</MudTh>
+                <MudTh>Subscription</MudTh>
+                <MudTh>Amount</MudTh>
+                <MudTh>Method</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Paid At</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.SubscriptionPaymentId</MudTd>
+                <MudTd>@context.SellerSubscriptionId</MudTd>
+                <MudTd>@context.Amount</MudTd>
+                <MudTd>@context.PaymentMethod</MudTd>
+                <MudTd>@context.PaymentStatus</MudTd>
+                <MudTd>@context.PaidAtUtc?.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Invoices">
+        <MudTable Items="_invoices" Dense="true" Hover="true" RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Invoice Number</MudTh>
+                <MudTh>Subscription</MudTh>
+                <MudTh>Amount</MudTh>
+                <MudTh>Issued</MudTh>
+                <MudTh>Due</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.InvoiceNumber</MudTd>
+                <MudTd>@context.SellerSubscriptionId</MudTd>
+                <MudTd>@context.Amount</MudTd>
+                <MudTd>@context.IssuedAtUtc.ToLocalTime()</MudTd>
+                <MudTd>@context.DueAtUtc?.ToLocalTime()</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Plans">
+        <MudStack Row="true" Spacing="2" Class="mb-2">
+            <MudTextField @bind-Value="_plan.PlanName" Label="Plan Name" />
+            <MudNumericField @bind-Value="_plan.PriceAmount" Label="Price" />
+            <MudNumericField @bind-Value="_plan.DurationDays" Label="Days" />
+            <MudNumericField @bind-Value="_plan.MaxActiveListings" Label="Listing Limit" />
+            <MudNumericField @bind-Value="_plan.SortOrder" Label="Sort" />
+            <MudButton OnClick="CreatePlan">Create</MudButton>
+        </MudStack>
+
+        <MudTable Items="_plans" Dense="true" Hover="true" RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Plan</MudTh>
+                <MudTh>Price</MudTh>
+                <MudTh>Days</MudTh>
+                <MudTh>Limit</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.PlanName</MudTd>
+                <MudTd>@context.PriceAmount</MudTd>
+                <MudTd>@context.DurationDays</MudTd>
+                <MudTd>@context.MaxActiveListings</MudTd>
+                <MudTd><StatusBadge Status="@(context.IsActive ? "ACTIVE" : "INACTIVE")" /></MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" OnClick='@(() => DeactivatePlan(context.PlanId))'>Deactivate</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private IReadOnlyList<AdminPaymentVm> _payments = [];
+    private IReadOnlyList<AdminInvoiceVm> _invoices = [];
+    private IReadOnlyList<AdminPlanVm> _plans = [];
+    private UpsertPlanVm _plan = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _payments = await ApiClient.GetAdminPaymentsAsync(CancellationToken.None);
+        _invoices = await ApiClient.GetAdminInvoicesAsync(CancellationToken.None);
+        _plans = await ApiClient.GetAdminPlansAsync(CancellationToken.None);
+    }
+
+    private async Task CreatePlan()
+    {
+        await ApiClient.PostAsync("/api/admin/plans", _plan, CancellationToken.None);
+        _plan = new UpsertPlanVm();
+        await LoadAsync();
+    }
+
+    private async Task DeactivatePlan(int id)
+    {
+        await ApiClient.PatchAsync($"/api/admin/plans/{id}/deactivate", new { }, CancellationToken.None);
+        await LoadAsync();
+    }
+}

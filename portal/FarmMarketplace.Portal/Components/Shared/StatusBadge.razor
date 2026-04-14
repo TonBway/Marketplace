@@ -1,0 +1,16 @@
+<MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveColor(Status)">@Status</MudChip>
+
+@code {
+    [Parameter] public string Status { get; set; } = "UNKNOWN";
+
+    private static Color ResolveColor(string status)
+    {
+        return status.ToUpperInvariant() switch
+        {
+            "ACTIVE" or "PUBLISHED" or "APPROVE" => Color.Success,
+            "DRAFT" or "PENDING" or "IN_PROGRESS" => Color.Warning,
+            "SUSPEND" or "REJECT" or "CANCELLED" or "UNPUBLISHED" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

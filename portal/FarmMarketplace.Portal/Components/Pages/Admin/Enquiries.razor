@@ -1,0 +1,41 @@
+@page "/admin/enquiries"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Enquiries Oversight</MudText>
+
+<MudTable Items="_rows" Dense="true" Hover="true" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Enquiry</MudTh>
+        <MudTh>Listing</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.EnquiryId</MudTd>
+        <MudTd>@context.ListingId</MudTd>
+        <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
+        <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/enquiries/{context.EnquiryId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.EnquiryId, "review"))'>Mark Reviewed</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.EnquiryId, "close"))'>Close</MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<AdminEnquiryVm> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = await ApiClient.GetAdminEnquiriesAsync(null, CancellationToken.None);
+    }
+
+    private async Task Act(Guid id, string action)
+    {
+        await ApiClient.PatchAsync($"/api/admin/enquiries/{id}/{action}", new { StatusCode = action.ToUpperInvariant(), Reason = "Portal action" }, CancellationToken.None);
+        _rows = await ApiClient.GetAdminEnquiriesAsync(null, CancellationToken.None);
+    }
+}

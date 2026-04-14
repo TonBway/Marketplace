@@ -1,0 +1,27 @@
+@page "/"
+@attribute [Authorize]
+@inject NavigationManager Navigation
+
+<PageTitle>Portal</PageTitle>
+
+<MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateTask;
+        var role = state.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToUpperInvariant();
+
+        var target = role switch
+        {
+            "SELLER" => "/seller/dashboard",
+            "ADMIN" => "/admin/dashboard",
+            "SUPER_ADMIN" => "/admin/dashboard",
+            _ => "/access-denied"
+        };
+
+        Navigation.NavigateTo(target, true);
+    }
+}
