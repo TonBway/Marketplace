@@ -60,7 +60,7 @@ Production-structured starter for:
 - POST `/api/listings`
 - GET `/api/listings/my`
 - PATCH `/api/listings/{listingId}/status`
-- POST `/api/listings/images`
+- POST `/api/listings/{listingId}/images/upload` (multipart/form-data)
 
 - GET `/api/subscriptions/plans`
 - GET `/api/subscriptions/active`

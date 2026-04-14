@@ -1,8 +1,10 @@
 using FarmMarketplace.Api.Extensions;
+using FarmMarketplace.Api.Options;
 using FarmMarketplace.Application.Interfaces;
 using FarmMarketplace.Contracts.Listings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace FarmMarketplace.Api.Controllers;
 
@@ -11,8 +13,18 @@ namespace FarmMarketplace.Api.Controllers;
 public sealed class ListingsController : ControllerBase
 {
     private readonly IListingService _service;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly FileUploadOptions _fileUploadOptions;
 
-    public ListingsController(IListingService service) => _service = service;
+    public ListingsController(
+        IListingService service,
+        IFileStorageService fileStorageService,
+        IOptions<FileUploadOptions> fileUploadOptions)
+    {
+        _service = service;
+        _fileStorageService = fileStorageService;
+        _fileUploadOptions = fileUploadOptions.Value;
+    }
 
     [HttpPost]
     [Authorize(Roles = "SELLER")]
@@ -38,11 +50,73 @@ public sealed class ListingsController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("images")]
+    [HttpPost("{listingId:guid}/images/upload")]
     [Authorize(Roles = "SELLER")]
-    public async Task<IActionResult> AddImage([FromBody] UploadListingImageRequest request, CancellationToken cancellationToken)
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ListingImageUploadResponse>> UploadImage(
+        Guid listingId,
+        [FromForm] IFormFile file,
+        [FromForm] bool isPrimary,
+        [FromForm] int sortOrder,
+        CancellationToken cancellationToken)
     {
-        await _service.AddImageAsync(User.GetRequiredUserId(), request, cancellationToken);
-        return NoContent();
+        if (file.Length <= 0)
+        {
+            return BadRequest(new { error = "File is required." });
+        }
+
+        if (file.Length > _fileUploadOptions.MaxBytes)
+        {
+            return BadRequest(new { error = $"File exceeds maximum allowed size of {_fileUploadOptions.MaxBytes} bytes." });
+        }
+
+        if (sortOrder < 0)
+        {
+            return BadRequest(new { error = "Sort order must be zero or greater." });
+        }
+
+        var allowedMimeTypes = _fileUploadOptions.AllowedMimeTypes
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!allowedMimeTypes.Contains(file.ContentType))
+        {
+            return BadRequest(new { error = "Unsupported file type." });
+        }
+
+        if (!await HasValidSignatureAsync(file, file.ContentType, cancellationToken))
+        {
+            return BadRequest(new { error = "File signature does not match content type." });
+        }
+
+        await using var fileStream = file.OpenReadStream();
+        var storedFile = await _fileStorageService.SaveListingImageAsync(fileStream, file.ContentType, cancellationToken);
+
+        var addImageRequest = new UploadListingImageRequest(listingId, storedFile.PublicUrl, isPrimary, sortOrder);
+        await _service.AddImageAsync(User.GetRequiredUserId(), addImageRequest, cancellationToken);
+
+        return Ok(new ListingImageUploadResponse(listingId, storedFile.PublicUrl, storedFile.ContentType, storedFile.SizeBytes, isPrimary, sortOrder));
+    }
+
+    private static async Task<bool> HasValidSignatureAsync(IFormFile file, string contentType, CancellationToken cancellationToken)
+    {
+        var maxSignatureLength = 12;
+        var signature = new byte[maxSignatureLength];
+
+        await using var stream = file.OpenReadStream();
+        var read = await stream.ReadAsync(signature.AsMemory(0, maxSignatureLength), cancellationToken);
+        if (read <= 0)
+        {
+            return false;
+        }
+
+        return contentType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => read >= 3 && signature[0] == 0xFF && signature[1] == 0xD8 && signature[2] == 0xFF,
+            "image/png" => read >= 8 && signature[0] == 0x89 && signature[1] == 0x50 && signature[2] == 0x4E && signature[3] == 0x47 && signature[4] == 0x0D && signature[5] == 0x0A && signature[6] == 0x1A && signature[7] == 0x0A,
+            "image/webp" => read >= 12 && signature[0] == 0x52 && signature[1] == 0x49 && signature[2] == 0x46 && signature[3] == 0x46 && signature[8] == 0x57 && signature[9] == 0x45 && signature[10] == 0x42 && signature[11] == 0x50,
+            _ => false
+        };
     }
 }

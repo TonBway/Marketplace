@@ -1,5 +1,7 @@
 using System.Text;
 using FarmMarketplace.Api.Middleware;
+using FarmMarketplace.Api.Options;
+using FarmMarketplace.Api.Services;
 using FarmMarketplace.Application.Interfaces;
 using FarmMarketplace.Infrastructure.Data;
 using FarmMarketplace.Infrastructure.Services;
@@ -21,6 +23,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.Configure<FileUploadOptions>(builder.Configuration.GetSection("FileUpload"));
+builder.Services.Configure<LocalFileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FarmMarketplace";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FarmMarketplaceClients";
@@ -54,6 +58,7 @@ builder.Services.AddScoped<IEnquiryService, EnquiryService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReferenceDataService, ReferenceDataService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
 var app = builder.Build();
 
@@ -66,6 +71,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
