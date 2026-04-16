@@ -66,16 +66,27 @@ public sealed class ListingsController : ControllerBase
         return NoContent();
     }
 
+    // Swashbuckle 9.x requires IFormFile and companion [FromForm] fields to be
+    // wrapped in a single model bound with [FromForm] — individual [FromForm]
+    // parameters alongside IFormFile cause SwaggerGeneratorException.
+    public sealed class UploadImageForm
+    {
+        public IFormFile File { get; set; } = null!;
+        public bool IsPrimary { get; set; }
+        public int SortOrder { get; set; }
+    }
+
     [HttpPost("{listingId:guid}/images/upload")]
     [Authorize(Roles = "SELLER")]
     [RequestSizeLimit(6 * 1024 * 1024)]
+    [Consumes("multipart/form-data")]
     public async Task<ActionResult<ListingImageUploadResponse>> UploadImage(
         Guid listingId,
-        [FromForm] IFormFile file,
-        [FromForm] bool isPrimary,
-        [FromForm] int sortOrder,
+        [FromForm] UploadImageForm form,
         CancellationToken cancellationToken)
     {
+        var file = form.File;
+
         if (file.Length <= 0)
         {
             return BadRequest(new { error = "File is required." });
@@ -86,7 +97,7 @@ public sealed class ListingsController : ControllerBase
             return BadRequest(new { error = $"File exceeds maximum allowed size of {_fileUploadOptions.MaxBytes} bytes." });
         }
 
-        if (sortOrder < 0)
+        if (form.SortOrder < 0)
         {
             return BadRequest(new { error = "Sort order must be zero or greater." });
         }
@@ -109,10 +120,10 @@ public sealed class ListingsController : ControllerBase
         await using var fileStream = file.OpenReadStream();
         var storedFile = await _fileStorageService.SaveListingImageAsync(fileStream, file.ContentType, cancellationToken);
 
-        var addImageRequest = new UploadListingImageRequest(listingId, storedFile.PublicUrl, isPrimary, sortOrder);
+        var addImageRequest = new UploadListingImageRequest(listingId, storedFile.PublicUrl, form.IsPrimary, form.SortOrder);
         await _service.AddImageAsync(User.GetRequiredUserId(), addImageRequest, cancellationToken);
 
-        return Ok(new ListingImageUploadResponse(listingId, storedFile.PublicUrl, storedFile.ContentType, storedFile.SizeBytes, isPrimary, sortOrder));
+        return Ok(new ListingImageUploadResponse(listingId, storedFile.PublicUrl, storedFile.ContentType, storedFile.SizeBytes, form.IsPrimary, form.SortOrder));
     }
 
     private static async Task<bool> HasValidSignatureAsync(IFormFile file, string contentType, CancellationToken cancellationToken)
