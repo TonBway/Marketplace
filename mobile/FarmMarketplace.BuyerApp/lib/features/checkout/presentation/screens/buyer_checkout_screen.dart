@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/providers.dart';
-
-class BuyerCheckoutScreen extends ConsumerStatefulWidget {
+class BuyerCheckoutScreen extends StatefulWidget {
   const BuyerCheckoutScreen({
     super.key,
     required this.listing,
@@ -14,10 +11,10 @@ class BuyerCheckoutScreen extends ConsumerStatefulWidget {
   final int initialQty;
 
   @override
-  ConsumerState<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
+  State<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
 }
 
-class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
+class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
   static const _apiBaseUrl =
       String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.88.20:5000');
 
@@ -57,37 +54,8 @@ class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
     return '$base$path';
   }
 
-  Future<void> _placeOrder() async {
-    final auth = ref.read(authNotifierProvider).valueOrNull;
-    final isGuest = auth?.isGuest ?? true;
-    if (isGuest) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to place an order.')),
-      );
-      return;
-    }
-
-    final listingId = (widget.listing['listingId'] ?? widget.listing['listing_id'])?.toString() ?? '';
-    if (listingId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid listing. Please try again.')),
-      );
-      return;
-    }
-
-    await ref.read(apiClientProvider).dio.post(
-      '/api/enquiries',
-      data: {
-        'listingId': listingId,
-        'message': 'Order request for quantity $_qty.',
-        'preferredContactMode': 'IN_APP',
-      },
-    );
-
-    if (!mounted) return;
-    await showDialog<void>(
+  void _showConfirmation() {
+    showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -129,7 +97,7 @@ class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
     final title = (widget.listing['title'] ?? 'Product').toString();
     final unit = (widget.listing['unitName'] ?? 'unit').toString();
     final sellerName =
-      (widget.listing['sellerName'] ?? 'Farmer').toString();
+        (widget.listing['sellerName'] ?? 'Local Farmer').toString();
     final imageUrl = _resolveImageUrl(widget.listing['primaryImageUrl']);
 
     return Scaffold(
@@ -396,7 +364,7 @@ class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
-                    onPressed: _placeOrder,
+                    onPressed: _showConfirmation,
                     child: const Text(
                       'Place Order',
                       style: TextStyle(

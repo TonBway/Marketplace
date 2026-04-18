@@ -46,6 +46,8 @@ public sealed record ListingDetailResponse(
     Guid ListingId,
     Guid SellerUserId,
     string SellerName,
+    string SellerPhone,
+    string SellerEmail,
     string Title,
     string Description,
     int CategoryId,

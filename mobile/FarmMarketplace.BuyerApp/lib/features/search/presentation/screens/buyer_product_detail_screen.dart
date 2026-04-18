@@ -2,7 +2,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers.dart';
-import '../../../bag/data/bag_notifier.dart';
 import '../../../checkout/presentation/screens/buyer_checkout_screen.dart';
 
 class BuyerProductDetailScreen extends ConsumerStatefulWidget {
@@ -24,18 +23,14 @@ class _BuyerProductDetailScreenState
   int _imageIndex = 0;
   List<String> _imageUrls = [];
   bool _imagesLoaded = false;
-  String? _sellerName;
-  String? _description;
-  bool _isFavorite = false;
-  bool _favoriteBusy = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDetail();
+    _loadImages();
   }
 
-  Future<void> _loadDetail() async {
+  Future<void> _loadImages() async {
     final listingId = widget.listing['listingId']?.toString() ??
         widget.listing['listing_id']?.toString();
     if (listingId == null) return;
@@ -50,25 +45,9 @@ class _BuyerProductDetailScreenState
           .map((img) => _resolveImageUrl(img['imageUrl']))
           .whereType<String>()
           .toList();
-
-      bool favorite = false;
-      final auth = ref.read(authNotifierProvider).valueOrNull;
-      final isGuest = auth?.isGuest ?? true;
-      if (!isGuest) {
-        final favResp = await ref.read(apiClientProvider).dio.get('/api/listings/favorites');
-        final list = (favResp.data as List)
-            .map((e) => (e as Map).cast<String, dynamic>())
-            .toList();
-        favorite = list.any((e) =>
-            (e['listingId'] ?? e['listing_id'])?.toString() == listingId);
-      }
-
       if (mounted) {
         setState(() {
           _imageUrls = urls;
-          _sellerName = data['sellerName']?.toString();
-          _description = data['description']?.toString();
-          _isFavorite = favorite;
           _imagesLoaded = true;
         });
       }
@@ -82,42 +61,6 @@ class _BuyerProductDetailScreenState
         });
       }
     }
-  }
-
-  Future<void> _toggleFavorite() async {
-    final auth = ref.read(authNotifierProvider).valueOrNull;
-    final isGuest = auth?.isGuest ?? true;
-    if (isGuest) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to save favorites.')),
-      );
-      return;
-    }
-
-    final listingId = (widget.listing['listingId'] ?? widget.listing['listing_id'])?.toString();
-    if (listingId == null || listingId.isEmpty || _favoriteBusy) return;
-
-    setState(() => _favoriteBusy = true);
-    try {
-      if (_isFavorite) {
-        await ref.read(apiClientProvider).dio.delete('/api/listings/$listingId/favorite');
-      } else {
-        await ref.read(apiClientProvider).dio.post('/api/listings/$listingId/favorite');
-      }
-      if (mounted) {
-        setState(() => _isFavorite = !_isFavorite);
-      }
-    } finally {
-      if (mounted) setState(() => _favoriteBusy = false);
-    }
-  }
-
-  void _addToBag() {
-    ref.read(bagProvider.notifier).addItem(widget.listing, quantity: _qty);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added $_qty item(s) to bag.')),
-    );
   }
 
   String _imageHint(String title) {
@@ -148,8 +91,8 @@ class _BuyerProductDetailScreenState
     final title = (widget.listing['title'] ?? 'Product').toString();
     final price = widget.listing['price']?.toString() ?? '0';
     final unit = widget.listing['unitName']?.toString() ?? 'unit';
-    final sellerName = (_sellerName ?? widget.listing['sellerName'] ?? 'Farmer').toString();
-    final description = (_description ?? widget.listing['description'] ?? 'No description provided by seller.').toString();
+    final sellerName =
+        (widget.listing['sellerName'] ?? 'Local Farmer').toString();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -162,11 +105,8 @@ class _BuyerProductDetailScreenState
         ),
         actions: [
           IconButton(
-            onPressed: _favoriteBusy ? null : _toggleFavorite,
-            icon: Icon(
-              _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: _isFavorite ? Colors.red.shade400 : null,
-            ),
+            onPressed: () {},
+            icon: const Icon(Icons.favorite_border_rounded),
           ),
         ],
       ),
@@ -344,11 +284,11 @@ class _BuyerProductDetailScreenState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      description,
-                      style: const TextStyle(height: 1.35, color: Colors.black54),
+                      'Fresh farm produce with quality assurance. Contact seller for pickup, delivery options, and bulk pricing.',
+                      style: TextStyle(height: 1.35, color: Colors.black54),
                     ),
                   ),
                   const SizedBox(height: 80),
@@ -357,40 +297,31 @@ class _BuyerProductDetailScreenState
             ),
           ),
 
-          // ─── CTA buttons ──────────────────────────────────────────────
+          // ─── Buy Now button ───────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-            child: Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _addToBag,
-                  icon: const Icon(Icons.shopping_bag_outlined),
-                  label: const Text('Add to Bag'),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8DC63F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF8DC63F),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => BuyerCheckoutScreen(
+                        listing: widget.listing,
+                        initialQty: _qty,
+                      ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => BuyerCheckoutScreen(
-                            listing: widget.listing,
-                            initialQty: _qty,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Text('Buy Now  ($_qty $unit)'),
-                  ),
-                ),
-              ],
+                  );
+                },
+                child: Text('Buy Now  ($_qty $unit)'),
+              ),
             ),
           ),
         ],

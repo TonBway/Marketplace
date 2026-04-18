@@ -7,8 +7,11 @@ public sealed record UpdateEnquiryStatusRequest(string StatusCode, string? Note)
 public sealed record EnquiryResponse(
     Guid EnquiryId,
     Guid ListingId,
+    string ListingTitle,
     Guid BuyerUserId,
+    string BuyerName,
     Guid SellerUserId,
+    string SellerName,
     string StatusCode,
     string Message,
     DateTime CreatedAtUtc);

@@ -62,6 +62,24 @@ class _SellerEnquiriesScreenState extends ConsumerState<SellerEnquiriesScreen> {
     }
   }
 
+  Color _statusColor(String code) {
+    switch (code.toUpperCase()) {
+      case 'CLOSED':
+        return Colors.green;
+      case 'IN_PROGRESS':
+        return Colors.orange;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _formatDate(dynamic value) {
+    final raw = value?.toString() ?? '';
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return '';
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -88,23 +106,79 @@ class _SellerEnquiriesScreenState extends ConsumerState<SellerEnquiriesScreen> {
           final item = _enquiries[index];
           final enquiryId = item['enquiryId']?.toString() ?? '';
           final statusCode = item['statusCode']?.toString() ?? 'NEW';
+          final listingTitle = (item['listingTitle'] ?? 'Listing').toString();
+          final buyerName = (item['buyerName'] ?? 'Buyer').toString();
+          final message = (item['message'] ?? '').toString();
+          final createdAt = _formatDate(item['createdAtUtc']);
+          final statusColor = _statusColor(statusCode);
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              title: Text('Listing: ${item['listingId']}'),
-              subtitle: Text(
-                '${item['message'] ?? ''}\nStatus: $statusCode',
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEFF5E4),
+                child: Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF8DC63F)),
               ),
-              isThreeLine: true,
-              trailing: PopupMenuButton<String>(
-                onSelected: (value) => _setStatus(enquiryId, value),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'NEW', child: Text('Mark New')),
-                  PopupMenuItem(
-                      value: 'IN_PROGRESS', child: Text('In Progress')),
-                  PopupMenuItem(value: 'CLOSED', child: Text('Close')),
-                ],
+              title: Text(
+                listingTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+              subtitle: Text('Buyer: $buyerName'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  statusCode,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              children: [
+                if (createdAt.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Sent: $createdAt',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F8FA),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(message.isEmpty ? 'No message provided.' : message),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) => _setStatus(enquiryId, value),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'NEW', child: Text('Mark New')),
+                      PopupMenuItem(value: 'IN_PROGRESS', child: Text('In Progress')),
+                      PopupMenuItem(value: 'CLOSED', child: Text('Close')),
+                    ],
+                    child: const Chip(
+                      avatar: Icon(Icons.edit_note_rounded, size: 18),
+                      label: Text('Update Status'),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },

@@ -47,6 +47,25 @@ class _BuyerSentEnquiriesScreenState extends ConsumerState<BuyerSentEnquiriesScr
     }
   }
 
+  Color _statusColor(String code) {
+    switch (code.toUpperCase()) {
+      case 'CLOSED':
+      case 'RESPONDED':
+        return Colors.green;
+      case 'IN_PROGRESS':
+        return Colors.orange;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _formatDate(dynamic value) {
+    final raw = value?.toString() ?? '';
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return '';
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -104,41 +123,63 @@ class _BuyerSentEnquiriesScreenState extends ConsumerState<BuyerSentEnquiriesScr
         itemBuilder: (context, index) {
           final enquiry = _enquiries[index];
           final status = (enquiry['statusCode'] ?? 'NEW').toString();
-          final isAnswered = status.toUpperCase() == 'RESPONDED';
+          final statusColor = _statusColor(status);
+          final listingTitle = (enquiry['listingTitle'] ?? 'Listing').toString();
+          final sellerName = (enquiry['sellerName'] ?? 'Seller').toString();
+          final message = (enquiry['message'] ?? '').toString();
+          final createdAt = _formatDate(enquiry['createdAtUtc']);
 
           return Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFEFF5E4),
                 child: Icon(Icons.storefront_outlined, color: Color(0xFF8DC63F)),
               ),
-              title: Text('Listing ${enquiry['listingId'] ?? ''}'),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isAnswered ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isAnswered ? Colors.green.shade700 : Colors.orange.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
+              title: Text(
+                listingTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text('Seller: $sellerName'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {},
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              children: [
+                if (createdAt.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Sent: $createdAt',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F8FA),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(message.isEmpty ? 'No message provided.' : message),
+                ),
+              ],
             ),
           );
         },

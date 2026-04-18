@@ -258,13 +258,11 @@ public sealed class ListingService : IListingService
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-    select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-           l.title as Title, l.description as Description, l.price as Price,
-           l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.price as Price,
+       l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
              l.expires_at_utc as ExpiresAtUtc,
              img.image_url as PrimaryImageUrl
 from marketplace.listings l
-    inner join auth.users su on su.user_id = l.seller_user_id
 inner join catalog.units u on u.unit_id = l.unit_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
 left join lateral (
@@ -324,13 +322,11 @@ where s.status_code = 'DRAFT'";
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-    select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-           l.title as Title, l.description as Description, l.price as Price,
-           l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.price as Price,
+       l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
        l.expires_at_utc as ExpiresAtUtc,
        img.image_url as PrimaryImageUrl
 from marketplace.listings l
-    inner join auth.users su on su.user_id = l.seller_user_id
 inner join catalog.units u on u.unit_id = l.unit_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
 left join lateral (
@@ -351,13 +347,11 @@ order by l.created_at_utc desc";
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-    select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-           l.title as Title, l.description as Description,
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.description as Description,
        l.category_id as CategoryId, l.product_type_id as ProductTypeId, l.price as Price, l.quantity as Quantity,
        l.unit_id as UnitId, l.region_id as RegionId, l.district_id as DistrictId, l.is_livestock as IsLivestock,
        ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc, l.expires_at_utc as ExpiresAtUtc
 from marketplace.listings l
-    inner join auth.users su on su.user_id = l.seller_user_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
 where l.listing_id = @ListingId and l.seller_user_id = @SellerUserId";
 
@@ -377,7 +371,6 @@ order by sort_order";
         return new ListingDetailResponse(
             core.ListingId,
             core.SellerUserId,
-            core.SellerName,
             core.Title,
             core.Description,
             core.CategoryId,
@@ -398,13 +391,11 @@ order by sort_order";
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-    select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-           l.title as Title, l.description as Description,
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.description as Description,
        l.category_id as CategoryId, l.product_type_id as ProductTypeId, l.price as Price, l.quantity as Quantity,
        l.unit_id as UnitId, l.region_id as RegionId, l.district_id as DistrictId, l.is_livestock as IsLivestock,
        ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc, l.expires_at_utc as ExpiresAtUtc
 from marketplace.listings l
-    inner join auth.users su on su.user_id = l.seller_user_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
 where l.listing_id = @ListingId and ls.status_code = 'PUBLISHED'";
 
@@ -421,7 +412,6 @@ order by is_primary desc, sort_order asc, created_at_utc asc";
         return new ListingDetailResponse(
             core.ListingId,
             core.SellerUserId,
-            core.SellerName,
             core.Title,
             core.Description,
             core.CategoryId,
@@ -476,67 +466,6 @@ where listing_id = @ListingId and seller_user_id = @SellerUserId";
         {
             throw new InvalidOperationException("Listing not found.");
         }
-    }
-
-    public async Task<IReadOnlyList<ListingSummaryResponse>> GetFavoritesAsync(Guid buyerUserId, CancellationToken cancellationToken)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-       l.title as Title, l.description as Description, l.price as Price,
-       l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
-       l.expires_at_utc as ExpiresAtUtc,
-       img.image_url as PrimaryImageUrl
-from marketplace.listing_favorites f
-inner join marketplace.listings l on l.listing_id = f.listing_id
-inner join auth.users su on su.user_id = l.seller_user_id
-inner join catalog.units u on u.unit_id = l.unit_id
-inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
-left join lateral (
-    select li.image_url
-    from marketplace.listing_images li
-    where li.listing_id = l.listing_id
-    order by li.is_primary desc, li.sort_order asc, li.created_at_utc asc
-    limit 1
-) img on true
-where f.buyer_user_id = @BuyerUserId
-order by f.created_at_utc desc";
-
-        var rows = await connection.QueryAsync<ListingSummaryResponse>(new CommandDefinition(sql, new
-        {
-            BuyerUserId = buyerUserId
-        }, cancellationToken: cancellationToken));
-
-        return rows.ToList();
-    }
-
-    public async Task AddFavoriteAsync(Guid buyerUserId, Guid listingId, CancellationToken cancellationToken)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-insert into marketplace.listing_favorites (listing_favorite_id, listing_id, buyer_user_id, created_at_utc)
-values (gen_random_uuid(), @ListingId, @BuyerUserId, now())
-on conflict (listing_id, buyer_user_id) do nothing";
-
-        await connection.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            ListingId = listingId,
-            BuyerUserId = buyerUserId
-        }, cancellationToken: cancellationToken));
-    }
-
-    public async Task RemoveFavoriteAsync(Guid buyerUserId, Guid listingId, CancellationToken cancellationToken)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-delete from marketplace.listing_favorites
-where listing_id = @ListingId and buyer_user_id = @BuyerUserId";
-
-        await connection.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            ListingId = listingId,
-            BuyerUserId = buyerUserId
-        }, cancellationToken: cancellationToken));
     }
 
     public async Task UpdateStatusAsync(Guid sellerUserId, Guid listingId, UpdateListingStatusRequest request, CancellationToken cancellationToken)
@@ -604,7 +533,6 @@ values (gen_random_uuid(), @ListingId, @ImageUrl, @IsPrimary, @SortOrder, now())
     private sealed record ListingDetailCore(
         Guid ListingId,
         Guid SellerUserId,
-        string SellerName,
         string Title,
         string Description,
         int CategoryId,
