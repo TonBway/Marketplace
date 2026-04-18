@@ -31,6 +31,7 @@ public interface IBuyerProfileService
 public interface IListingService
 {
     Task<Guid> CreateAsync(Guid sellerUserId, CreateListingRequest request, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ListingSummaryResponse>> BrowseAsync(string? search, int? regionId, int? categoryId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ListingSummaryResponse>> GetMyListingsAsync(Guid sellerUserId, string? statusCode, CancellationToken cancellationToken);
     Task<ListingDetailResponse?> GetMyListingAsync(Guid sellerUserId, Guid listingId, CancellationToken cancellationToken);
     Task UpdateAsync(Guid sellerUserId, Guid listingId, UpdateListingRequest request, CancellationToken cancellationToken);
@@ -70,4 +71,5 @@ public interface IReferenceDataService
 public interface IDashboardService
 {
     Task<SellerDashboardSummaryResponse> GetSellerSummaryAsync(Guid sellerUserId, CancellationToken cancellationToken);
+    Task<BuyerDashboardSummaryResponse> GetBuyerSummaryAsync(Guid buyerUserId, CancellationToken cancellationToken);
 }

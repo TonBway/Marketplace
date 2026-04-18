@@ -254,6 +254,32 @@ public sealed class ListingService : IListingService
 
     public ListingService(IDbConnectionFactory connectionFactory) => _connectionFactory = connectionFactory;
 
+    public async Task<IReadOnlyList<ListingSummaryResponse>> BrowseAsync(string? search, int? regionId, int? categoryId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.price as Price,
+       l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
+       l.expires_at_utc as ExpiresAtUtc
+from marketplace.listings l
+inner join catalog.units u on u.unit_id = l.unit_id
+inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
+where ls.status_code = 'PUBLISHED'
+  and (@Search is null or l.title ilike '%' || @Search || '%' or l.description ilike '%' || @Search || '%')
+  and (@RegionId is null or l.region_id = @RegionId)
+  and (@CategoryId is null or l.category_id = @CategoryId)
+order by l.created_at_utc desc";
+
+        var rows = await connection.QueryAsync<ListingSummaryResponse>(new CommandDefinition(sql, new
+        {
+            Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+            RegionId = regionId,
+            CategoryId = categoryId
+        }, cancellationToken: cancellationToken));
+
+        return rows.ToList();
+    }
+
     public async Task<Guid> CreateAsync(Guid sellerUserId, CreateListingRequest request, CancellationToken cancellationToken)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -743,5 +769,21 @@ select
      limit 1) as SubscriptionEndDateUtc";
 
         return await connection.QuerySingleAsync<SellerDashboardSummaryResponse>(new CommandDefinition(sql, new { SellerUserId = sellerUserId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<BuyerDashboardSummaryResponse> GetBuyerSummaryAsync(Guid buyerUserId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+select
+    (select count(1)
+     from marketplace.listing_favorites f
+     where f.buyer_user_id = @BuyerUserId) as FavoriteCount,
+    (select count(1)
+     from messaging.enquiries e
+     where e.buyer_user_id = @BuyerUserId) as SentEnquiries,
+    0 as AvailableCredits";
+
+        return await connection.QuerySingleAsync<BuyerDashboardSummaryResponse>(new CommandDefinition(sql, new { BuyerUserId = buyerUserId }, cancellationToken: cancellationToken));
     }
 }

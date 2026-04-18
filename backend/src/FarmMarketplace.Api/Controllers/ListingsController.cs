@@ -26,6 +26,18 @@ public sealed class ListingsController : ControllerBase
         _fileUploadOptions = fileUploadOptions.Value;
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<ListingSummaryResponse>>> Browse(
+        [FromQuery] string? search,
+        [FromQuery] int? regionId,
+        [FromQuery] int? categoryId,
+        CancellationToken cancellationToken)
+    {
+        var listings = await _service.BrowseAsync(search, regionId, categoryId, cancellationToken);
+        return Ok(listings);
+    }
+
     [HttpPost]
     [Authorize(Roles = "SELLER")]
     public async Task<ActionResult<Guid>> Create([FromBody] CreateListingRequest request, CancellationToken cancellationToken)
