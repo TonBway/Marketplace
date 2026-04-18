@@ -10,9 +10,12 @@ public sealed record EnquiryResponse(
     string ListingTitle,
     Guid BuyerUserId,
     string BuyerName,
+    string? BuyerEmail,
+    string? BuyerPhone,
     Guid SellerUserId,
     string SellerName,
     string StatusCode,
+    string PreferredContactMode,
     string Message,
     DateTime CreatedAtUtc);
 

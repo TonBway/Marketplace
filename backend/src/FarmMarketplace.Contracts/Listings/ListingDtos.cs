@@ -40,7 +40,7 @@ public sealed record ListingSummaryResponse(
     DateTime? ExpiresAtUtc,
     string? PrimaryImageUrl);
 
-public sealed record ListingImageResponse(string ImageUrl, bool IsPrimary, int SortOrder);
+public sealed record ListingImageResponse(Guid ImageId, string ImageUrl, bool IsPrimary, int SortOrder);
 
 public sealed record ListingDetailResponse(
     Guid ListingId,

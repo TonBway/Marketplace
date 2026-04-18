@@ -24,7 +24,6 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
   final _screens = const [
     SellerListingsScreen(),
     SellerEnquiriesScreen(),
-    SellerSubscriptionsScreen(),
     SellerProfileScreen(),
   ];
 
@@ -72,18 +71,54 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Wrap(
-            spacing: 18,
-            runSpacing: 8,
-            children: [
-              Text('Active listings: ${summary['activeListings'] ?? 0}'),
-              Text('Enquiries: ${summary['receivedEnquiries'] ?? 0}'),
-              Text('Plan: ${summary['activePlanName'] ?? 'None'}'),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Overview',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricTile(
+                    label: 'Active Listings',
+                    value: '${summary['activeListings'] ?? 0}',
+                    icon: Icons.storefront_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MetricTile(
+                    label: 'Enquiries',
+                    value: '${summary['receivedEnquiries'] ?? 0}',
+                    icon: Icons.chat_bubble_outline_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _MetricTile(
+              label: 'Current Plan',
+              value: '${summary['activePlanName'] ?? 'None'}',
+              icon: Icons.workspace_premium_outlined,
+              compact: true,
+            ),
+          ],
         ),
       ),
     );
@@ -93,19 +128,59 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seller Dashboard'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh summary',
-            onPressed: _loadSummary,
-            icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            tooltip: 'Logout',
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
+        title: const Text('Seller Hub'),
+        automaticallyImplyLeading: false,
+        leading: PopupMenuButton<String>(
+          icon: const Icon(Icons.menu_rounded),
+          tooltip: 'Menu',
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          onSelected: (value) {
+            if (value == 'refresh') {
+              _loadSummary();
+            } else if (value == 'plans') {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SellerSubscriptionsScreen(),
+                ),
+              );
+            } else if (value == 'logout') {
+              _logout();
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh_rounded),
+                  SizedBox(width: 10),
+                  Text('Refresh'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'plans',
+              child: Row(
+                children: [
+                  Icon(Icons.workspace_premium_outlined),
+                  SizedBox(width: 10),
+                  Text('Plans'),
+                ],
+              ),
+            ),
+            PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded, color: Colors.redAccent),
+                  SizedBox(width: 10),
+                  Text('Logout', style: TextStyle(color: Colors.redAccent)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -118,11 +193,65 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.storefront), label: 'Listings'),
+              icon: Icon(Icons.storefront_rounded), label: 'Listings'),
           NavigationDestination(
-              icon: Icon(Icons.question_answer), label: 'Enquiries'),
-          NavigationDestination(icon: Icon(Icons.credit_card), label: 'Plans'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
+              icon: Icon(Icons.question_answer_rounded), label: 'Enquiries'),
+          NavigationDestination(icon: Icon(Icons.person_rounded), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.compact = false,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: compact ? 10 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F8EF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF8DC63F), size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF2E3138),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

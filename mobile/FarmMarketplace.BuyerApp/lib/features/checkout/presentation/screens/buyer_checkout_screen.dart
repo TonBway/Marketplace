@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BuyerCheckoutScreen extends StatefulWidget {
+import '../../../../core/app_error_handler.dart';
+import '../../../../core/providers.dart';
+
+class BuyerCheckoutScreen extends ConsumerStatefulWidget {
   const BuyerCheckoutScreen({
     super.key,
     required this.listing,
@@ -11,14 +15,15 @@ class BuyerCheckoutScreen extends StatefulWidget {
   final int initialQty;
 
   @override
-  State<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
+  ConsumerState<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
 }
 
-class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
+class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
   static const _apiBaseUrl =
       String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.88.20:5000');
 
   late int _qty;
+  bool _placing = false;
 
   @override
   void initState() {
@@ -54,42 +59,83 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
     return '$base$path';
   }
 
-  void _showConfirmation() {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Order Placed!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF8DC63F), size: 56),
-            const SizedBox(height: 12),
-            Text(
-              'Your enquiry for ${widget.listing['title']} ×$_qty has been submitted.',
-              textAlign: TextAlign.center,
+  Future<void> _placeOrder() async {
+    final auth = ref.read(authNotifierProvider).valueOrNull;
+    final isGuest = auth?.isGuest ?? true;
+    if (isGuest) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Sign in required'),
+          content: const Text('Please sign in to place an order.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
             ),
           ],
         ),
-        actions: [
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF8DC63F),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () {
-              Navigator.of(context).pop(); // close dialog
-              Navigator.of(context).pop(); // back to detail
-              Navigator.of(context).pop(); // back to listing
-            },
-            child: const Text('Continue Shopping'),
+      );
+      return;
+    }
+
+    final listingId =
+        (widget.listing['listingId'] ?? widget.listing['listing_id'])?.toString();
+    if (listingId == null || listingId.isEmpty) return;
+
+    setState(() => _placing = true);
+    try {
+      await ref.read(apiClientProvider).dio.post(
+        '/api/enquiries',
+        data: {
+          'listingId': listingId,
+          'message': 'Order request for quantity $_qty.',
+          'preferredContactMode': 'IN_APP',
+        },
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Text('Order Placed!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle_rounded,
+                  color: Color(0xFF8DC63F), size: 56),
+              const SizedBox(height: 12),
+              Text(
+                'Your enquiry for ${widget.listing['title']} ×$_qty has been submitted.',
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF8DC63F),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Continue Shopping'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) await showErrorDialog(context, e);
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 
   @override
@@ -364,12 +410,19 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
-                    onPressed: _showConfirmation,
-                    child: const Text(
-                      'Place Order',
-                      style: TextStyle(
+                    onPressed: _placing ? null : _placeOrder,
+                    child: _placing
+                      ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                        'Place Order',
+                        style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
+                        ),
                   ),
                 ),
               ],

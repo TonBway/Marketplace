@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
+import '../../../bag/data/bag_notifier.dart';
 import '../../../checkout/presentation/screens/buyer_checkout_screen.dart';
 
 class BuyerProductDetailScreen extends ConsumerStatefulWidget {
@@ -23,14 +25,20 @@ class _BuyerProductDetailScreenState
   int _imageIndex = 0;
   List<String> _imageUrls = [];
   bool _imagesLoaded = false;
+  String? _sellerName;
+  String? _description;
+  String? _sellerPhone;
+  String? _sellerEmail;
+  bool _isFavorite = false;
+  bool _favoriteBusy = false;
 
   @override
   void initState() {
     super.initState();
-    _loadImages();
+    _loadDetail();
   }
 
-  Future<void> _loadImages() async {
+  Future<void> _loadDetail() async {
     final listingId = widget.listing['listingId']?.toString() ??
         widget.listing['listing_id']?.toString();
     if (listingId == null) return;
@@ -45,9 +53,27 @@ class _BuyerProductDetailScreenState
           .map((img) => _resolveImageUrl(img['imageUrl']))
           .whereType<String>()
           .toList();
+
+      bool favorite = false;
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (!isGuest) {
+        final favResp = await ref.read(apiClientProvider).dio.get('/api/listings/favorites');
+        final list = (favResp.data as List)
+            .map((e) => (e as Map).cast<String, dynamic>())
+            .toList();
+        favorite = list.any((e) =>
+            (e['listingId'] ?? e['listing_id'])?.toString() == listingId);
+      }
+
       if (mounted) {
         setState(() {
           _imageUrls = urls;
+          _sellerName = data['sellerName']?.toString();
+          _description = data['description']?.toString();
+          _sellerPhone = data['sellerPhone']?.toString();
+          _sellerEmail = data['sellerEmail']?.toString();
+          _isFavorite = favorite;
           _imagesLoaded = true;
         });
       }
@@ -61,6 +87,122 @@ class _BuyerProductDetailScreenState
         });
       }
     }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final auth = ref.read(authNotifierProvider).valueOrNull;
+    final isGuest = auth?.isGuest ?? true;
+    if (isGuest) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to save favorites.')),
+      );
+      return;
+    }
+
+    final listingId = (widget.listing['listingId'] ?? widget.listing['listing_id'])?.toString();
+    if (listingId == null || listingId.isEmpty || _favoriteBusy) return;
+
+    setState(() => _favoriteBusy = true);
+    try {
+      if (_isFavorite) {
+        await ref.read(apiClientProvider).dio.delete('/api/listings/$listingId/favorite');
+      } else {
+        await ref.read(apiClientProvider).dio.post('/api/listings/$listingId/favorite');
+      }
+      if (mounted) {
+        setState(() => _isFavorite = !_isFavorite);
+      }
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _favoriteBusy = false);
+    }
+  }
+
+  void _showFarmerContact(String name) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Color(0xFF8DC63F),
+                    child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 16)),
+                      const Text('Verified Farmer',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF8DC63F))),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text('Contact Details',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 12),
+              if (_sellerPhone != null && _sellerPhone!.isNotEmpty)
+                _ContactRow(
+                  icon: Icons.phone_rounded,
+                  label: 'Phone / WhatsApp',
+                  value: _sellerPhone!,
+                ),
+              if (_sellerEmail != null && _sellerEmail!.isNotEmpty)
+                _ContactRow(
+                  icon: Icons.email_rounded,
+                  label: 'Email',
+                  value: _sellerEmail!,
+                ),
+              if ((_sellerPhone == null || _sellerPhone!.isEmpty) &&
+                  (_sellerEmail == null || _sellerEmail!.isEmpty))
+                const Text('No contact details available.',
+                    style: TextStyle(color: Colors.black54)),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'You can also use the "Buy Now" button to send an enquiry directly through the app.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _addToBag() {
+    ref.read(bagProvider.notifier).addItem(widget.listing, quantity: _qty);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added $_qty item(s) to bag.')),
+    );
   }
 
   String _imageHint(String title) {
@@ -91,8 +233,8 @@ class _BuyerProductDetailScreenState
     final title = (widget.listing['title'] ?? 'Product').toString();
     final price = widget.listing['price']?.toString() ?? '0';
     final unit = widget.listing['unitName']?.toString() ?? 'unit';
-    final sellerName =
-        (widget.listing['sellerName'] ?? 'Local Farmer').toString();
+    final sellerName = (_sellerName ?? widget.listing['sellerName'] ?? 'Farmer').toString();
+    final description = (_description ?? widget.listing['description'] ?? 'No description provided by seller.').toString();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -105,8 +247,11 @@ class _BuyerProductDetailScreenState
         ),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.favorite_border_rounded),
+            onPressed: _favoriteBusy ? null : _toggleFavorite,
+            icon: Icon(
+              _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: _isFavorite ? Colors.red.shade400 : null,
+            ),
           ),
         ],
       ),
@@ -263,32 +408,82 @@ class _BuyerProductDetailScreenState
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 18,
-                          child: Icon(Icons.person_outline_rounded),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(sellerName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700)),
-                            const Text('Farmer  \u2022  4.9 \u2605',
-                                style: TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                      ],
+                    child: GestureDetector(
+                      onTap: () => _showFarmerContact(sellerName),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 18,
+                            child: Icon(Icons.person_outline_rounded),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(sellerName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.underline)),
+                              const Text('Farmer  \u2022  Tap to contact',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF8DC63F))),
+                            ],
+                          ),
+                          const Spacer(),
+                          const Icon(Icons.chevron_right_rounded,
+                              size: 18, color: Colors.black38),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Fresh farm produce with quality assurance. Contact seller for pickup, delivery options, and bulk pricing.',
-                      style: TextStyle(height: 1.35, color: Colors.black54),
+                      description,
+                      style: const TextStyle(height: 1.35, color: Colors.black54),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF7E0),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFBFDE94)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.local_shipping_outlined,
+                              color: Color(0xFF5A8F1E), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.45,
+                                    color: Color(0xFF3A5A0A)),
+                                children: [
+                                  TextSpan(
+                                    text: 'How to arrange delivery:\n',
+                                    style: TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        'Tap the farmer\u2019s name above to view contact details. '
+                                        'You can call, WhatsApp, or email the farmer directly to '
+                                        'discuss delivery, collection point, and timing. '
+                                        'Alternatively, use \u201cBuy Now\u201d to send an in-app enquiry.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 80),
@@ -297,31 +492,40 @@ class _BuyerProductDetailScreenState
             ),
           ),
 
-          // ─── Buy Now button ───────────────────────────────────────────
+          // ─── CTA buttons ──────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8DC63F),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _addToBag,
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: const Text('Add to Bag'),
                 ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => BuyerCheckoutScreen(
-                        listing: widget.listing,
-                        initialQty: _qty,
-                      ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF8DC63F),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
-                  );
-                },
-                child: Text('Buy Now  ($_qty $unit)'),
-              ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => BuyerCheckoutScreen(
+                            listing: widget.listing,
+                            initialQty: _qty,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text('Buy Now  ($_qty $unit)'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -347,6 +551,38 @@ class _BuyerProductDetailScreenState
         errorBuilder: (_, __, ___) => Center(
           child: Text(_imageHint(title), style: const TextStyle(fontSize: 110)),
         ),
+      ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({required this.icon, required this.label, required this.value});
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: const Color(0xFF8DC63F)),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.black45)),
+              Text(value,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+        ],
       ),
     );
   }

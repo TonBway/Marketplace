@@ -304,6 +304,38 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
     }
   }
 
+  Future<void> _deleteExistingImage(String imageId) async {
+    if (imageId.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove photo?'),
+        content: const Text('This will permanently delete the photo from the listing.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(apiClientProvider).dio.delete(
+        '/api/listings/${widget.listingId}/images/$imageId',
+      );
+      setState(() {
+        _existingImages.removeWhere((img) => img['imageId']?.toString() == imageId);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove photo: $error')),
+      );
+    }
+  }
+
   String _resolveImageUrl(String? rawUrl) {
     final value = (rawUrl ?? '').trim();
     if (value.isEmpty) return '';
@@ -676,9 +708,11 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
                   final img = entry.value;
                   final url = _resolveImageUrl(img['imageUrl']?.toString());
                   final isPrimary = img['isPrimary'] == true;
+                  final imageId = img['imageId']?.toString() ?? '';
                   return _ExistingImageTile(
                     url: url,
                     isPrimary: isPrimary,
+                    onRemove: () => _deleteExistingImage(imageId),
                   );
                 }),
                 // Pending local images
@@ -713,8 +747,9 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
 class _ExistingImageTile extends StatelessWidget {
   final String url;
   final bool isPrimary;
+  final VoidCallback onRemove;
 
-  const _ExistingImageTile({required this.url, required this.isPrimary});
+  const _ExistingImageTile({required this.url, required this.isPrimary, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -734,6 +769,20 @@ class _ExistingImageTile extends StatelessWidget {
                 height: 100,
                 color: Colors.grey.shade200,
                 child: const Icon(Icons.broken_image, color: Colors.grey),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
               ),
             ),
           ),

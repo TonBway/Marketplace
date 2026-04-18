@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
 import '../../data/bag_notifier.dart';
 
@@ -63,12 +64,7 @@ class _BuyerBagScreenState extends ConsumerState<BuyerBagScreen> {
       if (mounted) Navigator.of(context).pop();
     } on DioException catch (e) {
       if (!mounted) return;
-      final message = e.response?.data is Map
-          ? (e.response?.data['message']?.toString() ?? 'Failed to place order')
-          : 'Failed to place order';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      await showErrorDialog(context, e);
     } finally {
       if (mounted) setState(() => _placing = false);
     }

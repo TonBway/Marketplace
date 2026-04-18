@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
 import '../../../search/presentation/screens/buyer_product_detail_screen.dart';
 
@@ -42,6 +43,8 @@ class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
           ..clear()
           ..addAll(rows);
       });
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, e);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -52,7 +55,11 @@ class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
   Future<void> _removeFavorite(Map<String, dynamic> favorite) async {
     final id = (favorite['listingId'] ?? favorite['listing_id'])?.toString() ?? '';
     if (id.isEmpty) return;
-    await ref.read(apiClientProvider).dio.delete('/api/listings/$id/favorite');
+    try {
+      await ref.read(apiClientProvider).dio.delete('/api/listings/$id/favorite');
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, e);
+    }
     await _loadFavorites();
   }
 

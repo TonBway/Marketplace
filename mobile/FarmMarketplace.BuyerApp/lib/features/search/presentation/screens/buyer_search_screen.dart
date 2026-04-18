@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
 import 'buyer_product_detail_screen.dart';
 
@@ -61,14 +62,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load listings: $e'),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
+      if (mounted) showErrorSnackBar(context, e);
     } finally {
       if (mounted) {
         setState(() {

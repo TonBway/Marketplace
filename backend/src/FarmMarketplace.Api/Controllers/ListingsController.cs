@@ -195,6 +195,45 @@ public sealed class ListingsController : ControllerBase
         return null;
     }
 
+    [HttpDelete("{listingId:guid}/images/{imageId:guid}")]
+    [Authorize(Roles = "SELLER")]
+    public async Task<IActionResult> DeleteImage(Guid listingId, Guid imageId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _service.DeleteImageAsync(User.GetRequiredUserId(), listingId, imageId, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("favorites")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<ActionResult<IReadOnlyList<ListingSummaryResponse>>> GetFavorites(CancellationToken cancellationToken)
+    {
+        var listings = await _service.GetFavoritesAsync(User.GetRequiredUserId(), cancellationToken);
+        return Ok(listings);
+    }
+
+    [HttpPost("{listingId:guid}/favorite")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<IActionResult> AddFavorite(Guid listingId, CancellationToken cancellationToken)
+    {
+        await _service.AddFavoriteAsync(User.GetRequiredUserId(), listingId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("{listingId:guid}/favorite")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<IActionResult> RemoveFavorite(Guid listingId, CancellationToken cancellationToken)
+    {
+        await _service.RemoveFavoriteAsync(User.GetRequiredUserId(), listingId, cancellationToken);
+        return NoContent();
+    }
+
     private static bool IsHeicOrHeifSignature(byte[] signature, int read)
     {
         // ISO Base Media File format headers for HEIC/HEIF commonly include:

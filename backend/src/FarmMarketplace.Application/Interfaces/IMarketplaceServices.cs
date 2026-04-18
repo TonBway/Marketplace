@@ -38,6 +38,10 @@ public interface IListingService
     Task UpdateAsync(Guid sellerUserId, Guid listingId, UpdateListingRequest request, CancellationToken cancellationToken);
     Task UpdateStatusAsync(Guid sellerUserId, Guid listingId, UpdateListingStatusRequest request, CancellationToken cancellationToken);
     Task AddImageAsync(Guid sellerUserId, UploadListingImageRequest request, CancellationToken cancellationToken);
+    Task DeleteImageAsync(Guid sellerUserId, Guid listingId, Guid imageId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ListingSummaryResponse>> GetFavoritesAsync(Guid buyerUserId, CancellationToken cancellationToken);
+    Task AddFavoriteAsync(Guid buyerUserId, Guid listingId, CancellationToken cancellationToken);
+    Task RemoveFavoriteAsync(Guid buyerUserId, Guid listingId, CancellationToken cancellationToken);
 }
 
 public interface ISubscriptionService
