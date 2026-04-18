@@ -11,18 +11,14 @@
     <link rel="stylesheet" href="@Assets["FarmMarketplace.Portal.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <MudThemeProvider />
-    <MudPopoverProvider />
-    <MudDialogProvider />
-    <MudSnackbarProvider />
-
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["app-auth.js"]"></script>
     <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
 </body>
 

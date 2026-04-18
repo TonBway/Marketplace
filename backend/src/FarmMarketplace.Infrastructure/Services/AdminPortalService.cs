@@ -19,14 +19,14 @@ public sealed class AdminPortalService : IAdminPortalService
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
 select
-    (select count(1) from auth.users u inner join auth.roles r on r.role_id = u.role_id where r.role_code = 'SELLER') as TotalSellers,
-    (select count(1) from auth.users u inner join auth.roles r on r.role_id = u.role_id where r.role_code = 'BUYER') as TotalBuyers,
-    (select count(1) from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'PUBLISHED') as TotalActiveListings,
-    (select count(1) from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'DRAFT') as TotalPendingListings,
-    (select count(1) from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'SOLD_OUT') as TotalSoldOutListings,
-    (select count(1) from billing.seller_subscriptions ss inner join catalog.subscription_statuses cs on cs.subscription_status_id = ss.subscription_status_id where cs.status_code = 'ACTIVE') as TotalActiveSubscriptions,
-    (select count(1) from billing.seller_subscriptions where end_date_utc >= now() and end_date_utc <= now() + interval '7 day') as SubscriptionsExpiringSoon,
-    (select count(1) from messaging.enquiries) as TotalEnquiries";
+            (select count(1)::int from auth.users u inner join auth.roles r on r.role_id = u.role_id where r.role_code = 'SELLER') as TotalSellers,
+            (select count(1)::int from auth.users u inner join auth.roles r on r.role_id = u.role_id where r.role_code = 'BUYER') as TotalBuyers,
+            (select count(1)::int from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'PUBLISHED') as TotalActiveListings,
+            (select count(1)::int from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'DRAFT') as TotalPendingListings,
+            (select count(1)::int from marketplace.listings l inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id where ls.status_code = 'SOLD_OUT') as TotalSoldOutListings,
+            (select count(1)::int from billing.seller_subscriptions ss inner join catalog.subscription_statuses cs on cs.subscription_status_id = ss.subscription_status_id where cs.status_code = 'ACTIVE') as TotalActiveSubscriptions,
+            (select count(1)::int from billing.seller_subscriptions where end_date_utc >= now() and end_date_utc <= now() + interval '7 day') as SubscriptionsExpiringSoon,
+            (select count(1)::int from messaging.enquiries) as TotalEnquiries";
 
         return await connection.QuerySingleAsync<AdminDashboardSummaryResponse>(new CommandDefinition(sql, cancellationToken: cancellationToken));
     }

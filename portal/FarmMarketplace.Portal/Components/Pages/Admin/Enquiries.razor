@@ -1,6 +1,7 @@
 @page "/admin/enquiries"
 @attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
 @inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
 
 <MudText Typo="Typo.h4" Class="fm-page-title mb-4">Enquiries Oversight</MudText>
 
@@ -18,7 +19,7 @@
         <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
         <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
         <MudTd>
-            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/enquiries/{context.EnquiryId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick='@(() => Navigation.NavigateTo($"/admin/enquiries/{context.EnquiryId}", true))'>Detail</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.EnquiryId, "review"))'>Mark Reviewed</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.EnquiryId, "close"))'>Close</MudButton>
         </MudTd>

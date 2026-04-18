@@ -25,25 +25,37 @@ public sealed class PortalApiClient
         => await SendListAsync<RecentActivityVm>(HttpMethod.Get, "/api/admin/dashboard/recent-activity", cancellationToken);
 
     public async Task<IReadOnlyList<AdminSellerVm>> GetAdminSellersAsync(string? search, string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<AdminSellerVm>(HttpMethod.Get, $"/api/admin/sellers?search={Uri.EscapeDataString(search ?? string.Empty)}&statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/admin/sellers", ("search", search), ("statusCode", statusCode));
+        return await SendListAsync<AdminSellerVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<AdminSellerDetailVm?> GetAdminSellerAsync(Guid id, CancellationToken cancellationToken)
         => await SendAsync<AdminSellerDetailVm>(HttpMethod.Get, $"/api/admin/sellers/{id}", null, cancellationToken);
 
     public async Task<IReadOnlyList<AdminBuyerVm>> GetAdminBuyersAsync(string? search, string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<AdminBuyerVm>(HttpMethod.Get, $"/api/admin/buyers?search={Uri.EscapeDataString(search ?? string.Empty)}&statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/admin/buyers", ("search", search), ("statusCode", statusCode));
+        return await SendListAsync<AdminBuyerVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<AdminBuyerDetailVm?> GetAdminBuyerAsync(Guid id, CancellationToken cancellationToken)
         => await SendAsync<AdminBuyerDetailVm>(HttpMethod.Get, $"/api/admin/buyers/{id}", null, cancellationToken);
 
     public async Task<IReadOnlyList<AdminListingVm>> GetAdminListingsAsync(string? search, string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<AdminListingVm>(HttpMethod.Get, $"/api/admin/listings?search={Uri.EscapeDataString(search ?? string.Empty)}&statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/admin/listings", ("search", search), ("statusCode", statusCode));
+        return await SendListAsync<AdminListingVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<AdminListingDetailVm?> GetAdminListingAsync(Guid id, CancellationToken cancellationToken)
         => await SendAsync<AdminListingDetailVm>(HttpMethod.Get, $"/api/admin/listings/{id}", null, cancellationToken);
 
     public async Task<IReadOnlyList<AdminSubscriptionVm>> GetAdminSubscriptionsAsync(string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<AdminSubscriptionVm>(HttpMethod.Get, $"/api/admin/subscriptions?statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/admin/subscriptions", ("statusCode", statusCode));
+        return await SendListAsync<AdminSubscriptionVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<AdminSubscriptionDetailVm?> GetAdminSubscriptionAsync(Guid id, CancellationToken cancellationToken)
         => await SendAsync<AdminSubscriptionDetailVm>(HttpMethod.Get, $"/api/admin/subscriptions/{id}", null, cancellationToken);
@@ -58,7 +70,10 @@ public sealed class PortalApiClient
         => await SendListAsync<AdminPlanVm>(HttpMethod.Get, "/api/admin/plans", cancellationToken);
 
     public async Task<IReadOnlyList<AdminEnquiryVm>> GetAdminEnquiriesAsync(string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<AdminEnquiryVm>(HttpMethod.Get, $"/api/admin/enquiries?statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/admin/enquiries", ("statusCode", statusCode));
+        return await SendListAsync<AdminEnquiryVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<AdminEnquiryDetailVm?> GetAdminEnquiryAsync(Guid id, CancellationToken cancellationToken)
         => await SendAsync<AdminEnquiryDetailVm>(HttpMethod.Get, $"/api/admin/enquiries/{id}", null, cancellationToken);
@@ -88,7 +103,10 @@ public sealed class PortalApiClient
         => await SendAsync<object>(HttpMethod.Put, "/api/seller/profile/me", request, cancellationToken);
 
     public async Task<IReadOnlyList<ListingSummaryVm>> GetMyListingsAsync(string? statusCode, CancellationToken cancellationToken)
-        => await SendListAsync<ListingSummaryVm>(HttpMethod.Get, $"/api/listings/my?statusCode={Uri.EscapeDataString(statusCode ?? string.Empty)}", cancellationToken);
+    {
+        var route = BuildRoute("/api/listings/my", ("statusCode", statusCode));
+        return await SendListAsync<ListingSummaryVm>(HttpMethod.Get, route, cancellationToken);
+    }
 
     public async Task<ListingDetailVm?> GetMyListingAsync(Guid listingId, CancellationToken cancellationToken)
         => await SendAsync<ListingDetailVm>(HttpMethod.Get, $"/api/listings/my/{listingId}", null, cancellationToken);
@@ -173,5 +191,15 @@ public sealed class PortalApiClient
     {
         var state = await _authenticationStateProvider.GetAuthenticationStateAsync();
         return state.User.FindFirstValue("access_token");
+    }
+
+    private static string BuildRoute(string path, params (string Key, string? Value)[] query)
+    {
+        var parts = query
+            .Where(q => !string.IsNullOrWhiteSpace(q.Value))
+            .Select(q => $"{q.Key}={Uri.EscapeDataString(q.Value!)}")
+            .ToArray();
+
+        return parts.Length == 0 ? path : $"{path}?{string.Join("&", parts)}";
     }
 }

@@ -2,6 +2,11 @@
 @inject NavigationManager Navigation
 @inject AuthPortalService AuthPortalService
 
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 <MudLayout>
     <MudDrawer Elevation="1" Variant="DrawerVariant.Mini" Open="true" Class="fm-drawer">
         <MudDrawerHeader>
@@ -34,7 +39,7 @@
 @code {
     private void OnProfile()
     {
-        Navigation.NavigateTo("/account");
+        Navigation.NavigateTo("/account", true);
     }
 
     private async Task OnLogout()

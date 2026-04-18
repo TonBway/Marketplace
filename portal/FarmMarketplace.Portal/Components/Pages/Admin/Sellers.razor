@@ -1,6 +1,7 @@
 @page "/admin/sellers"
 @attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
 @inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
 
 <MudText Typo="Typo.h4" Class="fm-page-title mb-4">Seller Management</MudText>
 
@@ -36,7 +37,7 @@
         <MudTd>@(context.SubscriptionStatus ?? "N/A")</MudTd>
         <MudTd>@context.ActiveListingCount</MudTd>
         <MudTd>
-            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/sellers/{context.UserId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick='@(() => Navigation.NavigateTo($"/admin/sellers/{context.UserId}", true))'>Detail</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => ChangeStatus(context.UserId, "approve"))'>Approve</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => ChangeStatus(context.UserId, "suspend"))'>Suspend</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" OnClick='@(() => ChangeStatus(context.UserId, "reactivate"))'>Reactivate</MudButton>

@@ -1,6 +1,7 @@
 @page "/admin/subscriptions"
 @attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
 @inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
 
 <MudText Typo="Typo.h4" Class="fm-page-title mb-4">Subscriptions</MudText>
 
@@ -20,7 +21,7 @@
         <MudTd>@context.StartDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudTd>
         <MudTd>@context.EndDateUtc.ToLocalTime().ToString("yyyy-MM-dd")</MudTd>
         <MudTd>
-            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/subscriptions/{context.SellerSubscriptionId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick='@(() => Navigation.NavigateTo($"/admin/subscriptions/{context.SellerSubscriptionId}", true))'>Detail</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.SellerSubscriptionId, "activate"))'>Activate</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act(context.SellerSubscriptionId, "suspend"))'>Suspend</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.SellerSubscriptionId, "cancel"))'>Cancel</MudButton>

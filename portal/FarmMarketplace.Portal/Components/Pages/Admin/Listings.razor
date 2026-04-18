@@ -1,6 +1,7 @@
 @page "/admin/listings"
 @attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
 @inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
 
 <MudText Typo="Typo.h4" Class="fm-page-title mb-4">Listing Moderation</MudText>
 
@@ -20,7 +21,7 @@
         <MudTd><StatusBadge Status="@context.StatusCode" /></MudTd>
         <MudTd>@context.CreatedAtUtc.ToLocalTime()</MudTd>
         <MudTd>
-            <MudButton Size="Size.Small" Variant="Variant.Text" Href='@($"/admin/listings/{context.ListingId}")'>Detail</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick='@(() => Navigation.NavigateTo($"/admin/listings/{context.ListingId}", true))'>Detail</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick='@(() => Act(context.ListingId, "approve"))'>Approve</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick='@(() => Act(context.ListingId, "reject"))'>Reject</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick='@(() => Act(context.ListingId, "suspend"))'>Suspend</MudButton>

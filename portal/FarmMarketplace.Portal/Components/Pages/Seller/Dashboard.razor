@@ -1,6 +1,7 @@
 @page "/seller/dashboard"
 @attribute [Authorize(Roles = "SELLER")]
 @inject PortalApiClient ApiClient
+@inject NavigationManager Navigation
 
 <PageTitle>Seller Dashboard</PageTitle>
 
@@ -20,10 +21,10 @@ else
     </div>
 
     <MudStack Row="true" Spacing="2" Class="mt-4">
-        <MudButton Href="/seller/listings/new" Variant="Variant.Filled" Color="Color.Primary">Add Listing</MudButton>
-        <MudButton Href="/seller/listings" Variant="Variant.Outlined" Color="Color.Primary">View Listings</MudButton>
-        <MudButton Href="/seller/profile" Variant="Variant.Outlined" Color="Color.Primary">Edit Profile</MudButton>
-        <MudButton Href="/seller/subscription" Variant="Variant.Outlined" Color="Color.Primary">View Subscription</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick='@(() => Navigation.NavigateTo("/seller/listings/new", true))'>Add Listing</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick='@(() => Navigation.NavigateTo("/seller/listings", true))'>View Listings</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick='@(() => Navigation.NavigateTo("/seller/profile", true))'>Edit Profile</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick='@(() => Navigation.NavigateTo("/seller/subscription", true))'>View Subscription</MudButton>
     </MudStack>
 }
 

@@ -2,38 +2,35 @@ using System.Security.Claims;
 using FarmMarketplace.Portal.Models;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components;
-using System.Net.Http.Json;
+using Microsoft.JSInterop;
 
 namespace FarmMarketplace.Portal.Services;
 
 public sealed class AuthPortalService
 {
-    private readonly NavigationManager _navigationManager;
     private readonly AuthenticationStateProvider _authenticationStateProvider;
+    private readonly IJSRuntime _jsRuntime;
 
-    public AuthPortalService(NavigationManager navigationManager, AuthenticationStateProvider authenticationStateProvider)
+    public AuthPortalService(AuthenticationStateProvider authenticationStateProvider, IJSRuntime jsRuntime)
     {
-        _navigationManager = navigationManager;
         _authenticationStateProvider = authenticationStateProvider;
+        _jsRuntime = jsRuntime;
     }
 
     public async Task<string?> LoginAsync(PortalLoginRequest request, CancellationToken cancellationToken)
     {
-        using var client = new HttpClient { BaseAddress = new Uri(_navigationManager.BaseUri) };
-        var response = await client.PostAsJsonAsync("/portal-auth/login", request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        var result = await _jsRuntime.InvokeAsync<LoginResult?>("fmAuth.login", cancellationToken, request);
+        if (result is null)
         {
             return null;
         }
 
-        var result = await response.Content.ReadFromJsonAsync<LoginResult>(cancellationToken: cancellationToken);
         return result?.RoleCode;
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken)
     {
-        using var client = new HttpClient { BaseAddress = new Uri(_navigationManager.BaseUri) };
-        await client.PostAsync("/portal-auth/logout", null, cancellationToken);
+        await _jsRuntime.InvokeVoidAsync("fmAuth.logout", cancellationToken);
     }
 
     public async Task<PortalUserInfo?> GetCurrentUserAsync()
