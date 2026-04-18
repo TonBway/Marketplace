@@ -171,6 +171,13 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
   }
 
   Future<void> _pickCameraImage() async {
+    final totalCount = _existingImages.length + _pendingImages.length;
+    if (totalCount >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 5 photos allowed per listing.')),
+      );
+      return;
+    }
     final XFile? image = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 80,
@@ -182,12 +189,26 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
   }
 
   Future<void> _pickMultipleImages() async {
+    final currentCount = _existingImages.length + _pendingImages.length;
+    if (currentCount >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 5 photos allowed per listing.')),
+      );
+      return;
+    }
+    final remaining = 5 - currentCount;
     final images = await _picker.pickMultiImage(
       imageQuality: 80,
       maxWidth: 1920,
     );
     if (images.isNotEmpty) {
-      setState(() => _pendingImages.addAll(images));
+      final allowed = images.take(remaining).toList();
+      setState(() => _pendingImages.addAll(allowed));
+      if (images.length > remaining) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Only $remaining more photo(s) were added (5 max).')),
+        );
+      }
     }
   }
 
@@ -610,6 +631,7 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
 
   Widget _buildImagesSection() {
     final totalCount = _existingImages.length + _pendingImages.length;
+    final atLimit = totalCount >= 5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -617,13 +639,13 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Photos ($totalCount)',
+              'Photos ($totalCount / 5)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             TextButton.icon(
-              onPressed: _showImageSourceSheet,
+              onPressed: atLimit ? null : _showImageSourceSheet,
               icon: const Icon(Icons.add_a_photo, size: 18),
-              label: const Text('Add Photo'),
+              label: Text(atLimit ? 'Limit Reached' : 'Add Photo'),
             ),
           ],
         ),

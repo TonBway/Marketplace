@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BuyerCheckoutScreen extends StatefulWidget {
+import '../../../../core/providers.dart';
+
+class BuyerCheckoutScreen extends ConsumerStatefulWidget {
   const BuyerCheckoutScreen({
     super.key,
     required this.listing,
@@ -11,10 +14,10 @@ class BuyerCheckoutScreen extends StatefulWidget {
   final int initialQty;
 
   @override
-  State<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
+  ConsumerState<BuyerCheckoutScreen> createState() => _BuyerCheckoutScreenState();
 }
 
-class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
+class _BuyerCheckoutScreenState extends ConsumerState<BuyerCheckoutScreen> {
   static const _apiBaseUrl =
       String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.88.20:5000');
 
@@ -54,8 +57,37 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
     return '$base$path';
   }
 
-  void _showConfirmation() {
-    showDialog<void>(
+  Future<void> _placeOrder() async {
+    final auth = ref.read(authNotifierProvider).valueOrNull;
+    final isGuest = auth?.isGuest ?? true;
+    if (isGuest) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to place an order.')),
+      );
+      return;
+    }
+
+    final listingId = (widget.listing['listingId'] ?? widget.listing['listing_id'])?.toString() ?? '';
+    if (listingId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid listing. Please try again.')),
+      );
+      return;
+    }
+
+    await ref.read(apiClientProvider).dio.post(
+      '/api/enquiries',
+      data: {
+        'listingId': listingId,
+        'message': 'Order request for quantity $_qty.',
+        'preferredContactMode': 'IN_APP',
+      },
+    );
+
+    if (!mounted) return;
+    await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -97,7 +129,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
     final title = (widget.listing['title'] ?? 'Product').toString();
     final unit = (widget.listing['unitName'] ?? 'unit').toString();
     final sellerName =
-        (widget.listing['sellerName'] ?? 'Local Farmer').toString();
+      (widget.listing['sellerName'] ?? 'Farmer').toString();
     final imageUrl = _resolveImageUrl(widget.listing['primaryImageUrl']);
 
     return Scaffold(
@@ -185,7 +217,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                                     fontSize: 12, color: Colors.black45)),
                             const SizedBox(height: 6),
                             Text(
-                              'PKR ${_unitPrice.toStringAsFixed(0)} / $unit',
+                              'SCR ${_unitPrice.toStringAsFixed(0)} / $unit',
                               style: const TextStyle(
                                 color: Color(0xFF8DC63F),
                                 fontWeight: FontWeight.w700,
@@ -285,7 +317,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                       _PriceRow(
                         label: 'Unit Price',
                         value:
-                            'PKR ${_unitPrice.toStringAsFixed(0)} / $unit',
+                            'SCR ${_unitPrice.toStringAsFixed(0)} / $unit',
                       ),
                       const Divider(height: 20),
                       _PriceRow(
@@ -295,7 +327,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                       const Divider(height: 20),
                       _PriceRow(
                         label: 'Subtotal',
-                        value: 'PKR ${_total.toStringAsFixed(0)}',
+                        value: 'SCR ${_total.toStringAsFixed(0)}',
                         bold: true,
                         valueColor: const Color(0xFF8DC63F),
                       ),
@@ -344,7 +376,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                         style: TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15)),
                     Text(
-                      'PKR ${_total.toStringAsFixed(0)}',
+                      'SCR ${_total.toStringAsFixed(0)}',
                       style: const TextStyle(
                         color: Color(0xFF8DC63F),
                         fontWeight: FontWeight.w800,
@@ -364,7 +396,7 @@ class _BuyerCheckoutScreenState extends State<BuyerCheckoutScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
-                    onPressed: _showConfirmation,
+                    onPressed: _placeOrder,
                     child: const Text(
                       'Place Order',
                       style: TextStyle(

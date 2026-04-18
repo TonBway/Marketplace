@@ -1,14 +1,17 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BuyerSentEnquiriesScreen extends StatefulWidget {
+import '../../../../core/providers.dart';
+
+class BuyerSentEnquiriesScreen extends ConsumerStatefulWidget {
   const BuyerSentEnquiriesScreen({super.key});
 
   @override
-  State<BuyerSentEnquiriesScreen> createState() =>
+  ConsumerState<BuyerSentEnquiriesScreen> createState() =>
       _BuyerSentEnquiriesScreenState();
 }
 
-class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
+class _BuyerSentEnquiriesScreenState extends ConsumerState<BuyerSentEnquiriesScreen> {
   final List<Map<String, dynamic>> _enquiries = [];
   bool _isLoading = true;
 
@@ -21,8 +24,22 @@ class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
   Future<void> _loadEnquiries() async {
     setState(() => _isLoading = true);
     try {
-      // TODO: Implement API call to load enquiries
-      await Future.delayed(const Duration(seconds: 1));
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (isGuest) {
+        setState(() => _enquiries.clear());
+        return;
+      }
+
+      final response = await ref.read(apiClientProvider).dio.get('/api/enquiries/sent');
+      final rows = (response.data as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+      setState(() {
+        _enquiries
+          ..clear()
+          ..addAll(rows);
+      });
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -86,7 +103,7 @@ class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final enquiry = _enquiries[index];
-          final status = (enquiry['status'] ?? 'Pending').toString();
+          final status = (enquiry['statusCode'] ?? 'NEW').toString();
           final isAnswered = status.toUpperCase() == 'RESPONDED';
 
           return Card(
@@ -97,7 +114,7 @@ class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
                 backgroundColor: Color(0xFFEFF5E4),
                 child: Icon(Icons.storefront_outlined, color: Color(0xFF8DC63F)),
               ),
-              title: Text(enquiry['productTitle'] ?? 'Product'),
+              title: Text('Listing ${enquiry['listingId'] ?? ''}'),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(

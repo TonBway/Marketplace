@@ -19,6 +19,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   final _categories = const ['FRUITS', 'VEGETABLES', 'TUBERS', 'GRAINS'];
   int _categoryIndex = 0;
   List<Map<String, dynamic>> _listings = [];
+  Set<String> _favoriteIds = <String>{};
   bool _isLoading = false;
   bool _loadedInitial = false;
 
@@ -60,6 +61,21 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
           }
         });
       }
+
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (!isGuest) {
+        final favResp = await ref.read(apiClientProvider).dio.get('/api/listings/favorites');
+        final rows = (favResp.data as List)
+            .map((e) => (e as Map).cast<String, dynamic>())
+            .toList();
+        setState(() {
+          _favoriteIds = rows
+              .map((e) => (e['listingId'] ?? e['listing_id']).toString())
+              .where((e) => e.isNotEmpty)
+              .toSet();
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,6 +92,44 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
           _loadedInitial = true;
         });
       }
+    }
+  }
+
+  Future<void> _toggleFavorite(Map<String, dynamic> listing) async {
+    final auth = ref.read(authNotifierProvider).valueOrNull;
+    final isGuest = auth?.isGuest ?? true;
+    if (isGuest) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to save favorites.')),
+      );
+      return;
+    }
+
+    final id = (listing['listingId'] ?? listing['listing_id'])?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    final isFav = _favoriteIds.contains(id);
+    try {
+      if (isFav) {
+        await ref.read(apiClientProvider).dio.delete('/api/listings/$id/favorite');
+      } else {
+        await ref.read(apiClientProvider).dio.post('/api/listings/$id/favorite');
+      }
+      if (mounted) {
+        setState(() {
+          if (isFav) {
+            _favoriteIds.remove(id);
+          } else {
+            _favoriteIds.add(id);
+          }
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorite.')),
+      );
     }
   }
 
@@ -177,6 +231,8 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                           itemCount: _listings.length,
                           itemBuilder: (context, index) {
                             final listing = _listings[index];
+                            final listingId = (listing['listingId'] ?? listing['listing_id'])?.toString() ?? '';
+                            final isFav = _favoriteIds.contains(listingId);
                             final title = (listing['title'] ?? 'Product').toString();
                             final price = listing['price']?.toString() ?? '0';
                             final unit = listing['unitName']?.toString() ?? 'unit';
@@ -202,8 +258,11 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                                         alignment: Alignment.topRight,
                                         child: IconButton(
                                           visualDensity: VisualDensity.compact,
-                                          onPressed: () {},
-                                          icon: const Icon(Icons.favorite_border_rounded),
+                                          onPressed: () => _toggleFavorite(listing),
+                                          icon: Icon(
+                                            isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                            color: isFav ? Colors.red.shade400 : null,
+                                          ),
                                         ),
                                       ),
                                       Expanded(
@@ -246,7 +305,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                                       Row(
                                         children: [
                                           Text(
-                                            'PKR $price',
+                                            'SCR $price',
                                             style: const TextStyle(
                                               color: Color(0xFF8DC63F),
                                               fontWeight: FontWeight.w700,

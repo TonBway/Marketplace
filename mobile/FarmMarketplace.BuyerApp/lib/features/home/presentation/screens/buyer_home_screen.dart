@@ -2,6 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers.dart';
+import '../../../bag/data/bag_notifier.dart';
+import '../../../bag/presentation/screens/buyer_bag_screen.dart';
 import '../../../profile/presentation/screens/buyer_profile_screen.dart';
 import '../../../search/presentation/screens/buyer_search_screen.dart';
 import '../../../favorites/presentation/screens/buyer_favorites_screen.dart';
@@ -191,6 +193,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider).valueOrNull;
     final isGuest = authState?.isGuest ?? false;
+    final bagCount = ref.watch(bagProvider).fold<int>(0, (sum, e) => sum + e.quantity);
 
     return Scaffold(
       drawer: _buildDrawer(context, isGuest),
@@ -212,24 +215,55 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        height: 64,
-        width: 64,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFF8DC63F),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8DC63F).withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+      floatingActionButton: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 64,
+            width: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF8DC63F),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8DC63F).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: IconButton(
-          onPressed: () => setState(() => _index = 0),
-          icon: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.white),
-        ),
+            child: IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BuyerBagScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.shopping_bag_outlined, color: Colors.white),
+            ),
+          ),
+          if (bagCount > 0)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  bagCount > 99 ? '99+' : '$bagCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [

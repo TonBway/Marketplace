@@ -29,7 +29,9 @@ public sealed record UpdateListingStatusRequest(string StatusCode);
 public sealed record ListingSummaryResponse(
     Guid ListingId,
     Guid SellerUserId,
+    string SellerName,
     string Title,
+    string Description,
     decimal Price,
     decimal Quantity,
     string UnitName,
@@ -43,6 +45,7 @@ public sealed record ListingImageResponse(string ImageUrl, bool IsPrimary, int S
 public sealed record ListingDetailResponse(
     Guid ListingId,
     Guid SellerUserId,
+    string SellerName,
     string Title,
     string Description,
     int CategoryId,

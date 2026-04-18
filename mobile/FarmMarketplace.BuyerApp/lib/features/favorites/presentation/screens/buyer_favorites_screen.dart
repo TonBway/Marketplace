@@ -1,13 +1,17 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BuyerFavoritesScreen extends StatefulWidget {
+import '../../../../core/providers.dart';
+import '../../../search/presentation/screens/buyer_product_detail_screen.dart';
+
+class BuyerFavoritesScreen extends ConsumerStatefulWidget {
   const BuyerFavoritesScreen({super.key});
 
   @override
-  State<BuyerFavoritesScreen> createState() => _BuyerFavoritesScreenState();
+  ConsumerState<BuyerFavoritesScreen> createState() => _BuyerFavoritesScreenState();
 }
 
-class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
+class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
   final List<Map<String, dynamic>> _favorites = [];
   bool _isLoading = true;
 
@@ -20,13 +24,36 @@ class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
   Future<void> _loadFavorites() async {
     setState(() => _isLoading = true);
     try {
-      // TODO: Implement API call to load favorites
-      await Future.delayed(const Duration(seconds: 1));
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (isGuest) {
+        setState(() {
+          _favorites.clear();
+        });
+        return;
+      }
+
+      final response = await ref.read(apiClientProvider).dio.get('/api/listings/favorites');
+      final rows = (response.data as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+      setState(() {
+        _favorites
+          ..clear()
+          ..addAll(rows);
+      });
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _removeFavorite(Map<String, dynamic> favorite) async {
+    final id = (favorite['listingId'] ?? favorite['listing_id'])?.toString() ?? '';
+    if (id.isEmpty) return;
+    await ref.read(apiClientProvider).dio.delete('/api/listings/$id/favorite');
+    await _loadFavorites();
   }
 
   @override
@@ -99,11 +126,18 @@ class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
                 child: const Center(child: Text('🍎', style: TextStyle(fontSize: 24))),
               ),
               title: Text(favorite['title'] ?? 'Product'),
-              subtitle: Text('PKR ${favorite['price'] ?? 0} / ${favorite['unit'] ?? 'unit'}'),
+              subtitle: Text('SCR ${favorite['price'] ?? 0} / ${favorite['unitName'] ?? 'unit'}'),
               trailing: IconButton(
                 icon: const Icon(Icons.favorite, color: Color(0xFF8DC63F)),
-                onPressed: () {},
+                onPressed: () => _removeFavorite(favorite),
               ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BuyerProductDetailScreen(listing: favorite),
+                  ),
+                );
+              },
             ),
           );
         },

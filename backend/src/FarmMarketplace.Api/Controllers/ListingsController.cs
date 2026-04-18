@@ -38,6 +38,39 @@ public sealed class ListingsController : ControllerBase
         return Ok(listings);
     }
 
+    [HttpGet("{listingId:guid}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ListingDetailResponse>> GetPublicListing(Guid listingId, CancellationToken cancellationToken)
+    {
+        var listing = await _service.GetPublicAsync(listingId, cancellationToken);
+        if (listing is null) return NotFound();
+        return Ok(listing);
+    }
+
+    [HttpGet("favorites")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<ActionResult<IReadOnlyList<ListingSummaryResponse>>> GetFavorites(CancellationToken cancellationToken)
+    {
+        var favorites = await _service.GetFavoritesAsync(User.GetRequiredUserId(), cancellationToken);
+        return Ok(favorites);
+    }
+
+    [HttpPost("{listingId:guid}/favorite")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<IActionResult> AddFavorite(Guid listingId, CancellationToken cancellationToken)
+    {
+        await _service.AddFavoriteAsync(User.GetRequiredUserId(), listingId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("{listingId:guid}/favorite")]
+    [Authorize(Roles = "BUYER")]
+    public async Task<IActionResult> RemoveFavorite(Guid listingId, CancellationToken cancellationToken)
+    {
+        await _service.RemoveFavoriteAsync(User.GetRequiredUserId(), listingId, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost]
     [Authorize(Roles = "SELLER")]
     public async Task<ActionResult<Guid>> Create([FromBody] CreateListingRequest request, CancellationToken cancellationToken)
