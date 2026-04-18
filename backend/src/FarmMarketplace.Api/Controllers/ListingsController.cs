@@ -119,18 +119,31 @@ public sealed class ListingsController : ControllerBase
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (!allowedMimeTypes.Contains(file.ContentType))
+        var effectiveContentType = NormalizeContentType(file.ContentType, file.FileName);
+        var detectedContentType = await DetectContentTypeFromSignatureAsync(file, cancellationToken);
+
+        if (detectedContentType is null)
         {
             return BadRequest(new { error = "Unsupported file type." });
         }
 
-        if (!await HasValidSignatureAsync(file, file.ContentType, cancellationToken))
+        // Trust actual file bytes first. Some devices keep .heic file names while
+        // transcoding bytes to JPEG during image picking/compression.
+        var finalContentType = detectedContentType;
+
+        if (!allowedMimeTypes.Contains(finalContentType))
         {
-            return BadRequest(new { error = "File signature does not match content type." });
+            return BadRequest(new { error = "Unsupported file type." });
+        }
+
+        if (!string.Equals(effectiveContentType, finalContentType, StringComparison.OrdinalIgnoreCase))
+        {
+            // Keep warning visible in logs while still accepting valid file bytes.
+            Console.WriteLine($"[UPLOAD] Content type normalized to '{effectiveContentType}', detected from bytes as '{finalContentType}' for file '{file.FileName}'.");
         }
 
         await using var fileStream = file.OpenReadStream();
-        var storedFile = await _fileStorageService.SaveListingImageAsync(fileStream, file.ContentType, cancellationToken);
+        var storedFile = await _fileStorageService.SaveListingImageAsync(fileStream, finalContentType, cancellationToken);
 
         var addImageRequest = new UploadListingImageRequest(listingId, storedFile.PublicUrl, form.IsPrimary, form.SortOrder);
         await _service.AddImageAsync(User.GetRequiredUserId(), addImageRequest, cancellationToken);
@@ -138,7 +151,7 @@ public sealed class ListingsController : ControllerBase
         return Ok(new ListingImageUploadResponse(listingId, storedFile.PublicUrl, storedFile.ContentType, storedFile.SizeBytes, form.IsPrimary, form.SortOrder));
     }
 
-    private static async Task<bool> HasValidSignatureAsync(IFormFile file, string contentType, CancellationToken cancellationToken)
+    private static async Task<string?> DetectContentTypeFromSignatureAsync(IFormFile file, CancellationToken cancellationToken)
     {
         var maxSignatureLength = 12;
         var signature = new byte[maxSignatureLength];
@@ -147,15 +160,91 @@ public sealed class ListingsController : ControllerBase
         var read = await stream.ReadAsync(signature.AsMemory(0, maxSignatureLength), cancellationToken);
         if (read <= 0)
         {
+            return null;
+        }
+
+        if (read >= 3 && signature[0] == 0xFF && signature[1] == 0xD8 && signature[2] == 0xFF)
+        {
+            return "image/jpeg";
+        }
+
+        if (read >= 8 && signature[0] == 0x89 && signature[1] == 0x50 && signature[2] == 0x4E && signature[3] == 0x47 && signature[4] == 0x0D && signature[5] == 0x0A && signature[6] == 0x1A && signature[7] == 0x0A)
+        {
+            return "image/png";
+        }
+
+        if (read >= 12 && signature[0] == 0x52 && signature[1] == 0x49 && signature[2] == 0x46 && signature[3] == 0x46 && signature[8] == 0x57 && signature[9] == 0x45 && signature[10] == 0x42 && signature[11] == 0x50)
+        {
+            return "image/webp";
+        }
+
+        if (IsHeicOrHeifSignature(signature, read))
+        {
+            return "image/heic";
+        }
+
+        return null;
+    }
+
+    private static bool IsHeicOrHeifSignature(byte[] signature, int read)
+    {
+        // ISO Base Media File format headers for HEIC/HEIF commonly include:
+        // bytes [4..7] == 'ftyp' and bytes [8..11] one of heic/heix/hevc/hevx/mif1/msf1
+        if (read < 12)
+        {
             return false;
         }
 
-        return contentType.ToLowerInvariant() switch
+        var hasFtyp = signature[4] == 0x66 && signature[5] == 0x74 && signature[6] == 0x79 && signature[7] == 0x70;
+        if (!hasFtyp)
         {
-            "image/jpeg" => read >= 3 && signature[0] == 0xFF && signature[1] == 0xD8 && signature[2] == 0xFF,
-            "image/png" => read >= 8 && signature[0] == 0x89 && signature[1] == 0x50 && signature[2] == 0x4E && signature[3] == 0x47 && signature[4] == 0x0D && signature[5] == 0x0A && signature[6] == 0x1A && signature[7] == 0x0A,
-            "image/webp" => read >= 12 && signature[0] == 0x52 && signature[1] == 0x49 && signature[2] == 0x46 && signature[3] == 0x46 && signature[8] == 0x57 && signature[9] == 0x45 && signature[10] == 0x42 && signature[11] == 0x50,
-            _ => false
+            return false;
+        }
+
+        var brand = new string(new[]
+        {
+            (char)signature[8],
+            (char)signature[9],
+            (char)signature[10],
+            (char)signature[11]
+        }).ToLowerInvariant();
+
+        return brand is "heic" or "heix" or "hevc" or "hevx" or "heim" or "heis" or "hevm" or "hevs" or "mif1" or "msf1";
+    }
+
+    private static string NormalizeContentType(string? contentType, string? fileName)
+    {
+        var normalized = (contentType ?? string.Empty).Trim().ToLowerInvariant();
+
+        if (normalized == "image/jpg")
+        {
+            return "image/jpeg";
+        }
+
+        if (normalized == "image/heic-sequence")
+        {
+            return "image/heic";
+        }
+
+        if (normalized == "image/heif-sequence")
+        {
+            return "image/heif";
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalized) && normalized != "application/octet-stream")
+        {
+            return normalized;
+        }
+
+        var extension = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            _ => normalized
         };
     }
 }

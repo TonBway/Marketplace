@@ -35,7 +35,8 @@ public sealed record ListingSummaryResponse(
     string UnitName,
     string StatusCode,
     DateTime CreatedAtUtc,
-    DateTime? ExpiresAtUtc);
+    DateTime? ExpiresAtUtc,
+    string? PrimaryImageUrl);
 
 public sealed record ListingImageResponse(string ImageUrl, bool IsPrimary, int SortOrder);
 

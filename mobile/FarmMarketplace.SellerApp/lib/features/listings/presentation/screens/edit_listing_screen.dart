@@ -8,15 +8,19 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/providers.dart';
 
-class CreateListingScreen extends ConsumerStatefulWidget {
-  const CreateListingScreen({super.key});
+class EditListingScreen extends ConsumerStatefulWidget {
+  final String listingId;
+
+  const EditListingScreen({super.key, required this.listingId});
 
   @override
-  ConsumerState<CreateListingScreen> createState() =>
-      _CreateListingScreenState();
+  ConsumerState<EditListingScreen> createState() => _EditListingScreenState();
 }
 
-class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
+class _EditListingScreenState extends ConsumerState<EditListingScreen> {
+  static const _apiBaseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.88.20:5000');
+
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -26,7 +30,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   bool _loading = true;
   bool _saving = false;
   bool _isLivestock = false;
-  final ImagePicker _picker = ImagePicker();
 
   int? _categoryId;
   int? _productTypeId;
@@ -39,12 +42,19 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   List<Map<String, dynamic>> _units = const [];
   List<Map<String, dynamic>> _regions = const [];
   List<Map<String, dynamic>> _districts = const [];
+
+  /// Existing images from the server
+  List<Map<String, dynamic>> _existingImages = [];
+
+  /// Newly picked images pending upload
   final List<XFile> _pendingImages = [];
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _loadAll();
   }
 
   @override
@@ -56,23 +66,44 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     super.dispose();
   }
 
-  Future<void> _loadInitialData() async {
+  Future<void> _loadAll() async {
     setState(() => _loading = true);
     try {
       final client = ref.read(apiClientProvider).dio;
-      final responses = await Future.wait([
+
+      // Fetch listing detail and reference data in parallel
+      final results = await Future.wait([
+        client.get('/api/listings/my/${widget.listingId}'),
         client.get('/api/reference/categories'),
         client.get('/api/reference/units'),
         client.get('/api/reference/regions'),
       ]);
 
-      final categories = (responses[0].data as List)
+      final detail = (results[0].data as Map).cast<String, dynamic>();
+      final categories = (results[1].data as List)
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList();
-      final units = (responses[1].data as List)
+      final units = (results[2].data as List)
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList();
-      final regions = (responses[2].data as List)
+      final regions = (results[3].data as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+
+      // Pre-populate text fields from detail
+      _titleCtrl.text = detail['title']?.toString() ?? '';
+      _descriptionCtrl.text = detail['description']?.toString() ?? '';
+      _priceCtrl.text = detail['price']?.toString() ?? '';
+      _quantityCtrl.text = detail['quantity']?.toString() ?? '';
+
+      final existingCategoryId = (detail['categoryId'] as num?)?.toInt();
+      final existingProductTypeId =
+          (detail['productTypeId'] as num?)?.toInt();
+      final existingUnitId = (detail['unitId'] as num?)?.toInt();
+      final existingRegionId = (detail['regionId'] as num?)?.toInt();
+      final existingDistrictId = (detail['districtId'] as num?)?.toInt();
+
+      final images = (detail['images'] as List? ?? [])
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList();
 
@@ -80,142 +111,63 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         _categories = categories;
         _units = units;
         _regions = regions;
-
-        if (_categories.isNotEmpty) {
-          _categoryId = (_categories.first['id'] as num).toInt();
-        }
-        if (_units.isNotEmpty) {
-          _unitId = (_units.first['id'] as num).toInt();
-        }
-        if (_regions.isNotEmpty) {
-          _regionId = (_regions.first['regionId'] as num).toInt();
-        }
+        _categoryId = existingCategoryId;
+        _unitId = existingUnitId;
+        _regionId = existingRegionId;
+        _isLivestock = detail['isLivestock'] == true;
+        _existingImages = images;
       });
 
-      if (_categoryId != null) {
-        await _loadProductTypes(_categoryId!);
-      }
-      if (_regionId != null) {
-        await _loadDistricts(_regionId!);
-      }
+      // Load product types and districts based on the saved category/region
+      await Future.wait([
+        if (existingCategoryId != null)
+          _loadProductTypes(existingCategoryId,
+              preselectId: existingProductTypeId),
+        if (existingRegionId != null)
+          _loadDistricts(existingRegionId, preselectId: existingDistrictId),
+      ]);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load reference data: $error')),
+        SnackBar(content: Text('Failed to load listing: $error')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _loadProductTypes(int categoryId) async {
+  Future<void> _loadProductTypes(int categoryId, {int? preselectId}) async {
     final response = await ref.read(apiClientProvider).dio.get(
       '/api/reference/product-types',
       queryParameters: {'categoryId': categoryId},
     );
-
     final productTypes = (response.data as List)
         .map((e) => (e as Map).cast<String, dynamic>())
         .toList();
-
     setState(() {
       _productTypes = productTypes;
-      _productTypeId = _productTypes.isNotEmpty
-          ? (_productTypes.first['productTypeId'] as num).toInt()
-          : null;
+      _productTypeId = preselectId ??
+          (productTypes.isNotEmpty
+              ? (productTypes.first['productTypeId'] as num).toInt()
+              : null);
     });
   }
 
-  Future<void> _loadDistricts(int regionId) async {
+  Future<void> _loadDistricts(int regionId, {int? preselectId}) async {
     final response = await ref.read(apiClientProvider).dio.get(
       '/api/reference/districts',
       queryParameters: {'regionId': regionId},
     );
-
     final districts = (response.data as List)
         .map((e) => (e as Map).cast<String, dynamic>())
         .toList();
-
     setState(() {
       _districts = districts;
-      _districtId = _districts.isNotEmpty
-          ? (_districts.first['districtId'] as num).toInt()
-          : null;
+      _districtId = preselectId ??
+          (districts.isNotEmpty
+              ? (districts.first['districtId'] as num).toInt()
+              : null);
     });
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (_categoryId == null ||
-        _productTypeId == null ||
-        _unitId == null ||
-        _regionId == null ||
-        _districtId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please complete all required dropdowns.')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final response = await ref.read(apiClientProvider).dio.post(
-        '/api/listings',
-        data: {
-          'title': _titleCtrl.text.trim(),
-          'description': _descriptionCtrl.text.trim(),
-          'categoryId': _categoryId,
-          'productTypeId': _productTypeId,
-          'price': double.parse(_priceCtrl.text.trim()),
-          'quantity': double.parse(_quantityCtrl.text.trim()),
-          'unitId': _unitId,
-          'regionId': _regionId,
-          'districtId': _districtId,
-          'isLivestock': _isLivestock,
-        },
-      );
-
-      final createdListingId = response.data?.toString();
-      if (_pendingImages.isNotEmpty &&
-          createdListingId != null &&
-          createdListingId.isNotEmpty) {
-        await _uploadPendingImages(createdListingId);
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _pendingImages.isEmpty
-                ? 'Listing created successfully.'
-                : 'Listing and images uploaded successfully.',
-          ),
-        ),
-      );
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-
-      var message = 'Failed to create listing: $error';
-      if (error is DioException) {
-        final data = error.response?.data;
-        if (data is Map && data['error'] != null) {
-          message = data['error'].toString();
-        }
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
   }
 
   Future<void> _pickCameraImage() async {
@@ -256,7 +208,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery (one or more)'),
+              title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickMultipleImages();
@@ -308,7 +260,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
   Future<void> _uploadPendingImages(String listingId) async {
     final client = ref.read(apiClientProvider).dio;
-
     for (int i = 0; i < _pendingImages.length; i++) {
       final file = _pendingImages[i];
       final mediaType = _inferMediaType(file);
@@ -322,10 +273,9 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           filename: file.name,
           contentType: mediaType,
         ),
-        'isPrimary': i == 0,
-        'sortOrder': i,
+        'isPrimary': i == 0 && _existingImages.isEmpty,
+        'sortOrder': _existingImages.length + i,
       });
-
       await client.post(
         '/api/listings/$listingId/images/upload',
         data: formData,
@@ -333,17 +283,113 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
   }
 
+  String _resolveImageUrl(String? rawUrl) {
+    final value = (rawUrl ?? '').trim();
+    if (value.isEmpty) return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    final base = _apiBaseUrl.endsWith('/')
+        ? _apiBaseUrl.substring(0, _apiBaseUrl.length - 1)
+        : _apiBaseUrl;
+    final path = value.startsWith('/') ? value : '/$value';
+    return '$base$path';
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_categoryId == null ||
+        _productTypeId == null ||
+        _unitId == null ||
+        _regionId == null ||
+        _districtId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please complete all required dropdowns.')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider).dio;
+
+      // Update listing details
+      await client.put(
+        '/api/listings/${widget.listingId}',
+        data: {
+          'title': _titleCtrl.text.trim(),
+          'description': _descriptionCtrl.text.trim(),
+          'categoryId': _categoryId,
+          'productTypeId': _productTypeId,
+          'price': double.parse(_priceCtrl.text.trim()),
+          'quantity': double.parse(_quantityCtrl.text.trim()),
+          'unitId': _unitId,
+          'regionId': _regionId,
+          'districtId': _districtId,
+          'isLivestock': _isLivestock,
+        },
+      );
+
+      // Upload any pending images
+      if (_pendingImages.isNotEmpty) {
+        await _uploadPendingImages(widget.listingId);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Listing updated successfully.')),
+      );
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+
+      var message = 'Failed to update listing: $error';
+      if (error is DioException) {
+        final data = error.response?.data;
+        if (data is Map && data['error'] != null) {
+          message = data['error'].toString();
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Create Listing')),
+        appBar: AppBar(title: const Text('Edit Listing')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Listing')),
+      appBar: AppBar(
+        title: const Text('Edit Listing'),
+        actions: [
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _submit,
+              child: const Text('Save'),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(14),
         child: Form(
@@ -351,17 +397,21 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Images Section ───────────────────────────────────────────
               _buildImagesSection(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+              const Divider(),
+              const SizedBox(height: 6),
+
+              // ── Basic Info ───────────────────────────────────────────────
               TextFormField(
                 controller: _titleCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Title',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Title is required'
-                    : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Title is required' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -372,11 +422,13 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   labelText: 'Description',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty)
+                validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Description is required'
                     : null,
               ),
               const SizedBox(height: 10),
+
+              // ── Category & Product Type ──────────────────────────────────
               DropdownButtonFormField<int>(
                 value: _categoryId,
                 decoration: const InputDecoration(
@@ -384,12 +436,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _categories
-                    .map(
-                      (item) => DropdownMenuItem<int>(
-                        value: (item['id'] as num).toInt(),
-                        child: Text(item['name'].toString()),
-                      ),
-                    )
+                    .map((item) => DropdownMenuItem<int>(
+                          value: (item['id'] as num).toInt(),
+                          child: Text(item['name'].toString()),
+                        ))
                     .toList(),
                 onChanged: (value) async {
                   if (value == null) return;
@@ -408,40 +458,40 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _productTypes
-                    .map(
-                      (item) => DropdownMenuItem<int>(
-                        value: (item['productTypeId'] as num).toInt(),
-                        child: Text(item['productTypeName'].toString()),
-                      ),
-                    )
+                    .map((item) => DropdownMenuItem<int>(
+                          value: (item['productTypeId'] as num).toInt(),
+                          child: Text(item['productTypeName'].toString()),
+                        ))
                     .toList(),
-                onChanged: (value) => setState(() => _productTypeId = value),
+                onChanged: (v) => setState(() => _productTypeId = v),
               ),
               if (_productTypes.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
-                    'No product types available for selected category. Please ask admin to configure product types.',
+                    'No product types available for selected category.',
                     style: TextStyle(color: Colors.orange),
                   ),
                 ),
               const SizedBox(height: 10),
+
+              // ── Price & Quantity ─────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       controller: _priceCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Price',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Price required';
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Required';
                         }
-                        if (double.tryParse(value.trim()) == null) {
+                        if (double.tryParse(v.trim()) == null) {
                           return 'Invalid';
                         }
                         return null;
@@ -452,17 +502,17 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _quantityCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Quantity',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Qty required';
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Required';
                         }
-                        if (double.tryParse(value.trim()) == null) {
+                        if (double.tryParse(v.trim()) == null) {
                           return 'Invalid';
                         }
                         return null;
@@ -472,6 +522,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                 ],
               ),
               const SizedBox(height: 10),
+
+              // ── Unit ─────────────────────────────────────────────────────
               DropdownButtonFormField<int>(
                 value: _unitId,
                 decoration: const InputDecoration(
@@ -479,16 +531,17 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _units
-                    .map(
-                      (item) => DropdownMenuItem<int>(
-                        value: (item['id'] as num).toInt(),
-                        child: Text('${item['name']} (${item['code']})'),
-                      ),
-                    )
+                    .map((item) => DropdownMenuItem<int>(
+                          value: (item['id'] as num).toInt(),
+                          child:
+                              Text('${item['name']} (${item['code']})'),
+                        ))
                     .toList(),
-                onChanged: (value) => setState(() => _unitId = value),
+                onChanged: (v) => setState(() => _unitId = v),
               ),
               const SizedBox(height: 10),
+
+              // ── Region & District ────────────────────────────────────────
               DropdownButtonFormField<int>(
                 value: _regionId,
                 decoration: const InputDecoration(
@@ -496,12 +549,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _regions
-                    .map(
-                      (item) => DropdownMenuItem<int>(
-                        value: (item['regionId'] as num).toInt(),
-                        child: Text(item['regionName'].toString()),
-                      ),
-                    )
+                    .map((item) => DropdownMenuItem<int>(
+                          value: (item['regionId'] as num).toInt(),
+                          child: Text(item['regionName'].toString()),
+                        ))
                     .toList(),
                 onChanged: (value) async {
                   if (value == null) return;
@@ -520,24 +571,26 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _districts
-                    .map(
-                      (item) => DropdownMenuItem<int>(
-                        value: (item['districtId'] as num).toInt(),
-                        child: Text(item['districtName'].toString()),
-                      ),
-                    )
+                    .map((item) => DropdownMenuItem<int>(
+                          value: (item['districtId'] as num).toInt(),
+                          child: Text(item['districtName'].toString()),
+                        ))
                     .toList(),
-                onChanged: (value) => setState(() => _districtId = value),
+                onChanged: (v) => setState(() => _districtId = v),
               ),
               const SizedBox(height: 10),
+
+              // ── Is Livestock ─────────────────────────────────────────────
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _isLivestock,
                 title: const Text('Is Livestock'),
-                subtitle: const Text('Toggle if this listing is livestock.'),
-                onChanged: (value) => setState(() => _isLivestock = value),
+                subtitle:
+                    const Text('Toggle if this listing is livestock.'),
+                onChanged: (v) => setState(() => _isLivestock = v),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
               FilledButton(
                 onPressed: _saving ? null : _submit,
                 child: _saving
@@ -546,7 +599,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                         width: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Create Listing'),
+                    : const Text('Save Changes'),
               ),
             ],
           ),
@@ -556,6 +609,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   Widget _buildImagesSection() {
+    final totalCount = _existingImages.length + _pendingImages.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -563,7 +617,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Photos (${_pendingImages.length})',
+              'Photos ($totalCount)',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             TextButton.icon(
@@ -573,7 +627,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
           ],
         ),
-        if (_pendingImages.isEmpty)
+        if (totalCount == 0)
           Container(
             height: 110,
             decoration: BoxDecoration(
@@ -583,7 +637,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
             child: const Center(
               child: Text(
-                'No photos selected yet. Add one or more photos.',
+                'No photos yet. Tap Add Photo to upload images.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -594,23 +648,37 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             height: 110,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: _pendingImages.asMap().entries.map((entry) {
-                final index = entry.key;
-                final file = entry.value;
-                return _PendingImageTile(
-                  file: file,
-                  isPrimary: index == 0,
-                  onRemove: () => setState(() => _pendingImages.removeAt(index)),
-                );
-              }).toList(),
+              children: [
+                // Existing server images
+                ..._existingImages.asMap().entries.map((entry) {
+                  final img = entry.value;
+                  final url = _resolveImageUrl(img['imageUrl']?.toString());
+                  final isPrimary = img['isPrimary'] == true;
+                  return _ExistingImageTile(
+                    url: url,
+                    isPrimary: isPrimary,
+                  );
+                }),
+                // Pending local images
+                ..._pendingImages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final file = entry.value;
+                  return _PendingImageTile(
+                    file: file,
+                    onRemove: () =>
+                        setState(() => _pendingImages.removeAt(index)),
+                  );
+                }),
+              ],
             ),
           ),
         if (_pendingImages.isNotEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
             child: Text(
-              'First selected photo becomes primary. Images upload after listing creation.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              '${_pendingImages.length} photo(s) will be uploaded on save.',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary, fontSize: 12),
             ),
           ),
       ],
@@ -618,16 +686,63 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 }
 
+// ─── Helper Widgets ─────────────────────────────────────────────────────────
+
+class _ExistingImageTile extends StatelessWidget {
+  final String url;
+  final bool isPrimary;
+
+  const _ExistingImageTile({required this.url, required this.isPrimary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              url,
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 100,
+                height: 100,
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (isPrimary)
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Primary',
+                  style: TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PendingImageTile extends StatelessWidget {
   final XFile file;
-  final bool isPrimary;
   final VoidCallback onRemove;
 
-  const _PendingImageTile({
-    required this.file,
-    required this.isPrimary,
-    required this.onRemove,
-  });
+  const _PendingImageTile({required this.file, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -662,14 +777,15 @@ class _PendingImageTile extends StatelessWidget {
             bottom: 4,
             left: 4,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: isPrimary ? Colors.green : Colors.blue,
+                color: Colors.blue,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                isPrimary ? 'Primary' : 'New',
-                style: const TextStyle(color: Colors.white, fontSize: 10),
+              child: const Text(
+                'New',
+                style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
           ),

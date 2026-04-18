@@ -260,10 +260,18 @@ public sealed class ListingService : IListingService
         const string sql = @"
 select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.price as Price,
        l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
-       l.expires_at_utc as ExpiresAtUtc
+             l.expires_at_utc as ExpiresAtUtc,
+             img.image_url as PrimaryImageUrl
 from marketplace.listings l
 inner join catalog.units u on u.unit_id = l.unit_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
+left join lateral (
+        select li.image_url
+        from marketplace.listing_images li
+        where li.listing_id = l.listing_id
+        order by li.is_primary desc, li.sort_order asc, li.created_at_utc asc
+        limit 1
+) img on true
 where ls.status_code = 'PUBLISHED'
   and (@Search is null or l.title ilike '%' || @Search || '%' or l.description ilike '%' || @Search || '%')
   and (@RegionId is null or l.region_id = @RegionId)
@@ -316,10 +324,18 @@ where s.status_code = 'DRAFT'";
         const string sql = @"
 select l.listing_id as ListingId, l.seller_user_id as SellerUserId, l.title as Title, l.price as Price,
        l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
-       l.expires_at_utc as ExpiresAtUtc
+       l.expires_at_utc as ExpiresAtUtc,
+       img.image_url as PrimaryImageUrl
 from marketplace.listings l
 inner join catalog.units u on u.unit_id = l.unit_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
+left join lateral (
+    select li.image_url
+    from marketplace.listing_images li
+    where li.listing_id = l.listing_id
+    order by li.is_primary desc, li.sort_order asc, li.created_at_utc asc
+    limit 1
+) img on true
 where l.seller_user_id = @SellerUserId and (@StatusCode is null or ls.status_code = @StatusCode)
 order by l.created_at_utc desc";
 

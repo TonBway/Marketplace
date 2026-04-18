@@ -10,7 +10,9 @@ public sealed class LocalFileStorageService : IFileStorageService
     {
         ["image/jpeg"] = ".jpg",
         ["image/png"] = ".png",
-        ["image/webp"] = ".webp"
+        ["image/webp"] = ".webp",
+        ["image/heic"] = ".heic",
+        ["image/heif"] = ".heif"
     };
 
     private readonly string _rootPath;

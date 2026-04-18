@@ -9,7 +9,7 @@ class BuyerSentEnquiriesScreen extends StatefulWidget {
 }
 
 class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
-  List<Map<String, dynamic>> _enquiries = [];
+  final List<Map<String, dynamic>> _enquiries = [];
   bool _isLoading = true;
 
   @override
@@ -33,25 +33,43 @@ class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_enquiries.isEmpty) {
-      return Scaffold(
-        body: Center(
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.mail_outline, size: 64, color: Colors.grey),
+              Container(
+                height: 84,
+                width: 84,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.chat_bubble_outline_rounded, size: 40, color: Color(0xFF5A8DEE)),
+              ),
               const SizedBox(height: 16),
-              const Text('No enquiries sent'),
+              Text(
+                'No enquiries sent',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'When you contact sellers, your conversations appear here.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  // TODO: Navigate to search
-                },
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8DC63F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {},
                 child: const Text('Browse Products'),
               ),
             ],
@@ -60,23 +78,53 @@ class _BuyerSentEnquiriesScreenState extends State<BuyerSentEnquiriesScreen> {
       );
     }
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _loadEnquiries,
-        child: ListView.builder(
-          itemCount: _enquiries.length,
-          itemBuilder: (context, index) {
-            final enquiry = _enquiries[index];
-            return ListTile(
+    return RefreshIndicator(
+      onRefresh: _loadEnquiries,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+        itemCount: _enquiries.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final enquiry = _enquiries[index];
+          final status = (enquiry['status'] ?? 'Pending').toString();
+          final isAnswered = status.toUpperCase() == 'RESPONDED';
+
+          return Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEFF5E4),
+                child: Icon(Icons.storefront_outlined, color: Color(0xFF8DC63F)),
+              ),
               title: Text(enquiry['productTitle'] ?? 'Product'),
-              subtitle: Text('Status: ${enquiry['status'] ?? 'Pending'}'),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                // TODO: View enquiry details
-              },
-            );
-          },
-        ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isAnswered ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isAnswered ? Colors.green.shade700 : Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {},
+            ),
+          );
+        },
       ),
     );
   }

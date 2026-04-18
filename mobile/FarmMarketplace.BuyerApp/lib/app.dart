@@ -11,10 +11,33 @@ class BuyerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authAsync = ref.watch(authNotifierProvider);
+    final theme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF8DC63F),
+        brightness: Brightness.light,
+      ),
+      scaffoldBackgroundColor: const Color(0xFFF4F5F7),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      cardTheme: const CardThemeData(
+        color: Colors.white,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+      ),
+    );
 
     return MaterialApp(
       title: 'Farm Marketplace Buyer',
-      theme: ThemeData(colorSchemeSeed: Colors.orange, useMaterial3: true),
+      debugShowCheckedModeBanner: false,
+      theme: theme,
       home: authAsync.when(
         loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator()),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers.dart';
 import 'create_listing_screen.dart';
+import 'edit_listing_screen.dart';
 
 class SellerListingsScreen extends ConsumerStatefulWidget {
   const SellerListingsScreen({super.key});
@@ -83,6 +84,17 @@ class _SellerListingsScreenState extends ConsumerState<SellerListingsScreen> {
     final dt = DateTime.tryParse(value.toString());
     if (dt == null) return value.toString();
     return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _openEditListing(String listingId) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditListingScreen(listingId: listingId),
+      ),
+    );
+    if (updated == true) {
+      await _load();
+    }
   }
 
   Future<void> _openCreateListing() async {
@@ -166,10 +178,26 @@ class _SellerListingsScreenState extends ConsumerState<SellerListingsScreen> {
                                 'Status: $statusCode  • Created: ${_fmtDate(item['createdAtUtc'])}',
                               ),
                               isThreeLine: true,
+                              onTap: () => _openEditListing(listingId),
                               trailing: PopupMenuButton<String>(
-                                onSelected: (value) =>
-                                    _updateStatus(listingId, value),
+                                onSelected: (value) {
+                                  if (value == '_edit') {
+                                    _openEditListing(listingId);
+                                  } else {
+                                    _updateStatus(listingId, value);
+                                  }
+                                },
                                 itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                      value: '_edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('Edit Listing'),
+                                        ],
+                                      )),
+                                  PopupMenuDivider(),
                                   PopupMenuItem(
                                       value: 'DRAFT', child: Text('Set Draft')),
                                   PopupMenuItem(

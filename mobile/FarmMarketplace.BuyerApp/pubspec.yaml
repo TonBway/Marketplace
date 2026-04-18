@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  dio: ^5.9.0
   flutter_riverpod: ^2.6.1
   flutter_secure_storage: ^9.2.2
   farm_marketplace_shared_api:

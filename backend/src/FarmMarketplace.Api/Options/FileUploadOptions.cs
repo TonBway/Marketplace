@@ -8,6 +8,8 @@ public sealed class FileUploadOptions
     [
         "image/jpeg",
         "image/png",
-        "image/webp"
+        "image/webp",
+        "image/heic",
+        "image/heif"
     ];
 }

@@ -50,149 +50,146 @@ class _BuyerLoginScreenState extends ConsumerState<BuyerLoginScreen> {
     final isLoading = authState is AsyncLoading;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF2E3138),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── Logo / Header ───────────────────────────────────────
-                  const Icon(Icons.shopping_cart_outlined, size: 72, color: Colors.orange),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Farm Marketplace',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Container(
+                height: 290,
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8DC63F), Color(0xFF5FA334)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  Text(
-                    'Buyer Portal',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 36),
-
-                  // ── Email / Phone ────────────────────────────────────────
-                  TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Email or Phone',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Email or phone is required' : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── Password ─────────────────────────────────────────────
-                  TextFormField(
-                    controller: _passwordCtrl,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
-                      ),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Password is required' : null,
-                  ),
-                  const SizedBox(height: 28),
-
-                  // ── Login button ─────────────────────────────────────────
-                  FilledButton(
-                    onPressed: isLoading ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Sign In', style: TextStyle(fontSize: 16)),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── Register link ────────────────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                child: const Center(
+                  child: Icon(Icons.agriculture_rounded, size: 120, color: Colors.white),
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(24, 26, 24, 28),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2E3138),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text("Don't have an account?"),
+                      const Text(
+                        'Agriculture',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Buy fresh produce directly from trusted local farmers.',
+                        style: TextStyle(color: Colors.white70, height: 1.3),
+                      ),
+                      const SizedBox(height: 18),
+                      TextFormField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          hintText: 'Email or Phone',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Email or phone is required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _passwordCtrl,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submit(),
+                        decoration: InputDecoration(
+                          hintText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Password is required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: isLoading ? null : _submit,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF8DC63F),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Sign In'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(color: Colors.white24),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => const BuyerRegisterScreen(),
+                                        ),
+                                      ),
+                              child: const Text('Sign Up'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       TextButton(
                         onPressed: isLoading
                             ? null
-                            : () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const BuyerRegisterScreen(),
-                                  ),
-                                ),
-                        child: const Text('Register'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ── Divider ──────────────────────────────────────────────
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          'or',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey),
+                            : () async {
+                                await ref.read(authNotifierProvider.notifier).loginAsGuest();
+                              },
+                        child: const Text(
+                          'Continue as Guest',
+                          style: TextStyle(color: Colors.white70),
                         ),
                       ),
-                      const Expanded(child: Divider()),
                     ],
                   ),
-                  const SizedBox(height: 24),
-
-                  // ── Guest login button ───────────────────────────────────
-                  OutlinedButton(
-                    onPressed: isLoading
-                        ? null
-                        : () async {
-                            await ref
-                                .read(authNotifierProvider.notifier)
-                                .loginAsGuest();
-                          },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Continue as Guest'),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

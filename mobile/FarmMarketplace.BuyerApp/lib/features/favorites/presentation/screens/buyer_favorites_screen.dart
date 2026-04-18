@@ -8,7 +8,7 @@ class BuyerFavoritesScreen extends StatefulWidget {
 }
 
 class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
-  List<Map<String, dynamic>> _favorites = [];
+  final List<Map<String, dynamic>> _favorites = [];
   bool _isLoading = true;
 
   @override
@@ -32,25 +32,43 @@ class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_favorites.isEmpty) {
-      return Scaffold(
-        body: Center(
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.favorite_border, size: 64, color: Colors.grey),
+              Container(
+                height: 84,
+                width: 84,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF5E4),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.favorite_border_rounded, size: 42, color: Color(0xFF8DC63F)),
+              ),
               const SizedBox(height: 16),
-              const Text('No favorites yet'),
+              Text(
+                'No favorites yet',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tap the heart icon on any product to save it here.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  // TODO: Navigate to search
-                },
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8DC63F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {},
                 child: const Text('Browse Products'),
               ),
             ],
@@ -59,25 +77,36 @@ class _BuyerFavoritesScreenState extends State<BuyerFavoritesScreen> {
       );
     }
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _loadFavorites,
-        child: ListView.builder(
-          itemCount: _favorites.length,
-          itemBuilder: (context, index) {
-            final favorite = _favorites[index];
-            return ListTile(
-              title: Text(favorite['title'] ?? 'Product'),
-              subtitle: Text('${favorite['price'] ?? 0} per ${favorite['unit'] ?? 'unit'}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.favorite),
-                onPressed: () {
-                  // TODO: Remove from favorites
-                },
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+        itemCount: _favorites.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final favorite = _favorites[index];
+          return Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(10),
+              leading: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F5F8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(child: Text('🍎', style: TextStyle(fontSize: 24))),
               ),
-            );
-          },
-        ),
+              title: Text(favorite['title'] ?? 'Product'),
+              subtitle: Text('PKR ${favorite['price'] ?? 0} / ${favorite['unit'] ?? 'unit'}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.favorite, color: Color(0xFF8DC63F)),
+                onPressed: () {},
+              ),
+            ),
+          );
+        },
       ),
     );
   }
