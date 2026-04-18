@@ -63,6 +63,8 @@ public interface IReferenceDataService
     Task<IReadOnlyList<RegionResponse>> GetRegionsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<DistrictResponse>> GetDistrictsAsync(int? regionId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ReferenceItemResponse>> GetCategoriesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<ProductTypeResponse>> GetProductTypesAsync(int? categoryId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ReferenceItemResponse>> GetUnitsAsync(CancellationToken cancellationToken);
 }
 
 public interface IDashboardService

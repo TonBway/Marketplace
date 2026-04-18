@@ -64,6 +64,27 @@ values
     ('LIVESTOCK', 'Livestock')
 on conflict (category_code) do nothing;
 
+insert into catalog.product_types (category_id, product_type_name)
+select c.category_id, t.product_type_name
+from (
+    values
+        ('CROPS', 'Maize'),
+        ('CROPS', 'Beans'),
+        ('CROPS', 'Rice'),
+        ('CROPS', 'Tomatoes'),
+        ('LIVESTOCK', 'Cattle'),
+        ('LIVESTOCK', 'Goats'),
+        ('LIVESTOCK', 'Poultry'),
+        ('LIVESTOCK', 'Pigs')
+) as t(category_code, product_type_name)
+inner join catalog.categories c on c.category_code = t.category_code
+where not exists (
+    select 1
+    from catalog.product_types pt
+    where pt.category_id = c.category_id
+      and lower(pt.product_type_name) = lower(t.product_type_name)
+);
+
 insert into billing.subscription_plans (plan_name, price_amount, duration_days, max_active_listings, is_active, sort_order)
 values
     ('Starter', 9.99, 30, 10, true, 1),

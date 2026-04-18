@@ -690,6 +690,28 @@ order by district_name";
         var rows = await connection.QueryAsync<ReferenceItemResponse>(new CommandDefinition(sql, cancellationToken: cancellationToken));
         return rows.ToList();
     }
+
+    public async Task<IReadOnlyList<ProductTypeResponse>> GetProductTypesAsync(int? categoryId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+select product_type_id as ProductTypeId, category_id as CategoryId, product_type_name as ProductTypeName
+from catalog.product_types
+where is_active = true
+  and (@CategoryId is null or category_id = @CategoryId)
+order by product_type_name";
+        var rows = await connection.QueryAsync<ProductTypeResponse>(
+            new CommandDefinition(sql, new { CategoryId = categoryId }, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<ReferenceItemResponse>> GetUnitsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = "select unit_id as Id, unit_code as Code, unit_name as Name from catalog.units order by unit_name";
+        var rows = await connection.QueryAsync<ReferenceItemResponse>(new CommandDefinition(sql, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
 }
 
 public sealed class DashboardService : IDashboardService

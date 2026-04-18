@@ -29,4 +29,16 @@ public sealed class ReferenceDataController : ControllerBase
     {
         return Ok(await _service.GetCategoriesAsync(cancellationToken));
     }
+
+    [HttpGet("product-types")]
+    public async Task<ActionResult<IReadOnlyList<ProductTypeResponse>>> ProductTypes([FromQuery] int? categoryId, CancellationToken cancellationToken)
+    {
+        return Ok(await _service.GetProductTypesAsync(categoryId, cancellationToken));
+    }
+
+    [HttpGet("units")]
+    public async Task<ActionResult<IReadOnlyList<ReferenceItemResponse>>> Units(CancellationToken cancellationToken)
+    {
+        return Ok(await _service.GetUnitsAsync(cancellationToken));
+    }
 }
