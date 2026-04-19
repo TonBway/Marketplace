@@ -1,0 +1,64 @@
+@page "/admin/analytics"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Analytics &amp; Reporting</MudText>
+
+@if (_summary is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">New Sellers This Month</MudText>
+                <MudText Typo="Typo.h5">@_summary.NewSellersThisMonth</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">New Buyers This Month</MudText>
+                <MudText Typo="Typo.h5">@_summary.NewBuyersThisMonth</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">New Listings This Month</MudText>
+                <MudText Typo="Typo.h5">@_summary.NewListingsThisMonth</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">Revenue This Month</MudText>
+                <MudText Typo="Typo.h5">@_summary.TotalRevenueThisMonth.ToString("C")</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Daily Activity (Last 30 Days)</MudText>
+    <MudTable Items="_summary.DailyActivity" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Date</MudTh>
+            <MudTh>New Listings</MudTh>
+            <MudTh>New Enquiries</MudTh>
+            <MudTh>New Orders</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Date</MudTd>
+            <MudTd>@context.NewListings</MudTd>
+            <MudTd>@context.NewEnquiries</MudTd>
+            <MudTd>@context.NewOrders</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private AnalyticsSummaryVm? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await ApiClient.GetAdminAnalyticsAsync(CancellationToken.None);
+    }
+}

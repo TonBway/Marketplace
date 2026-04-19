@@ -42,6 +42,20 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("request-otp")]
+    public async Task<ActionResult<RequestOtpResponse>> RequestOtp([FromBody] RequestOtpRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _authService.RequestOtpAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordWithOtpRequest request, CancellationToken cancellationToken)
+    {
+        await _authService.ResetPasswordWithOtpAsync(request, cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<AuthUserProfileResponse>> Me(CancellationToken cancellationToken)

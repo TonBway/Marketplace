@@ -28,4 +28,11 @@ public sealed class NotificationsController : ControllerBase
         await _service.MarkAllAsReadAsync(User.GetRequiredUserId(), cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("device-token")]
+    public async Task<IActionResult> RegisterDeviceToken([FromBody] RegisterDeviceTokenRequest request, CancellationToken cancellationToken)
+    {
+        await _service.RegisterDeviceTokenAsync(User.GetRequiredUserId(), request, cancellationToken);
+        return NoContent();
+    }
 }

@@ -152,6 +152,33 @@ public sealed class PortalApiClient
     public async Task PutAsync(string route, object request, CancellationToken cancellationToken)
         => await SendAsync<object>(HttpMethod.Put, route, request, cancellationToken);
 
+    // ── Orders ────────────────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<OrderVm>> GetAdminOrdersAsync(string? status, CancellationToken cancellationToken)
+    {
+        var route = BuildRoute("/api/orders/selling", ("status", status));
+        return await SendListAsync<OrderVm>(HttpMethod.Get, route, cancellationToken);
+    }
+
+    public async Task UpdateOrderStatusAsync(Guid orderId, string statusCode, string? note, CancellationToken cancellationToken)
+        => await SendAsync<object>(HttpMethod.Patch, $"/api/orders/{orderId}/status", new { StatusCode = statusCode, Note = note }, cancellationToken);
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<ReviewVm>> GetListingReviewsAsync(Guid listingId, CancellationToken cancellationToken)
+        => await SendListAsync<ReviewVm>(HttpMethod.Get, $"/api/reviews/listing/{listingId}", cancellationToken);
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+
+    public async Task<AnalyticsSummaryVm?> GetAdminAnalyticsAsync(CancellationToken cancellationToken)
+        => await SendAsync<AnalyticsSummaryVm>(HttpMethod.Get, "/api/analytics/admin", null, cancellationToken);
+
+    // ── Shipping Methods ──────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<ShippingMethodVm>> GetShippingMethodsAsync(CancellationToken cancellationToken)
+        => await SendListAsync<ShippingMethodVm>(HttpMethod.Get, "/api/reference/shipping-methods", cancellationToken);
+
+
     private async Task<T?> SendAsync<T>(HttpMethod method, string route, object? body, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient("MarketplaceApi");

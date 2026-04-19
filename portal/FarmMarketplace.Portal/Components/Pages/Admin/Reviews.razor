@@ -1,0 +1,48 @@
+@page "/admin/reviews"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Review Moderation</MudText>
+
+<MudText Typo="Typo.body2" Class="mb-4">Enter a listing ID to load its reviews.</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudTextField @bind-Value="_listingIdText" Label="Listing ID (GUID)" Variant="Variant.Outlined" />
+    <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadReviewsAsync">Load Reviews</MudButton>
+</MudPaper>
+
+@if (_reviews.Count > 0)
+{
+    <MudTable Items="_reviews" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Reviewer</MudTh>
+            <MudTh>Rating</MudTh>
+            <MudTh>Comment</MudTh>
+            <MudTh>Date</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.ReviewerName</MudTd>
+            <MudTd>
+                @for (int i = 0; i < context.Rating; i++)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Small" />
+                }
+            </MudTd>
+            <MudTd>@context.Comment</MudTd>
+            <MudTd>@context.CreatedAtUtc.ToLocalTime().ToString("d")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private string? _listingIdText;
+    private IReadOnlyList<ReviewVm> _reviews = [];
+
+    private async Task LoadReviewsAsync()
+    {
+        if (Guid.TryParse(_listingIdText, out var listingId))
+        {
+            _reviews = await ApiClient.GetListingReviewsAsync(listingId, CancellationToken.None);
+        }
+    }
+}

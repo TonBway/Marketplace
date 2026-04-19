@@ -1,5 +1,20 @@
 namespace FarmMarketplace.Contracts.Listings;
 
+public sealed record BrowseListingsRequest(
+    string? Search,
+    int? RegionId,
+    int? DistrictId,
+    int? CategoryId,
+    int? ProductTypeId,
+    decimal? MinPrice,
+    decimal? MaxPrice,
+    bool? IsLivestock,
+    string? SortBy,
+    int Page,
+    int PageSize);
+
+public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount, int Page, int PageSize, int TotalPages);
+
 public sealed record CreateListingRequest(
     string Title,
     string Description,

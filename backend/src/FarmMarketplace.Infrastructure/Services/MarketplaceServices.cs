@@ -4,16 +4,21 @@ using System.Security.Cryptography;
 using System.Text;
 using Dapper;
 using FarmMarketplace.Application.Interfaces;
+using FarmMarketplace.Contracts.Analytics;
 using FarmMarketplace.Contracts.Auth;
 using FarmMarketplace.Contracts.Billing;
 using FarmMarketplace.Contracts.Buyer;
 using FarmMarketplace.Contracts.Dashboard;
 using FarmMarketplace.Contracts.Listings;
 using FarmMarketplace.Contracts.Messaging;
+using FarmMarketplace.Contracts.Orders;
 using FarmMarketplace.Contracts.Reference;
+using FarmMarketplace.Contracts.Reviews;
 using FarmMarketplace.Contracts.Seller;
+using FarmMarketplace.Contracts.Shipping;
 using FarmMarketplace.Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FarmMarketplace.Infrastructure.Services;
@@ -132,6 +137,77 @@ where lower(email) = lower(@Value) or phone = @Value";
         }
     }
 
+    public async Task<RequestOtpResponse> RequestOtpAsync(RequestOtpRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string userSql = "select user_id as UserId from auth.users where lower(email) = lower(@Value) or phone = @Value";
+        var row = await connection.QuerySingleOrDefaultAsync<UserIdRow>(new CommandDefinition(userSql, new { Value = request.EmailOrPhone }, cancellationToken: cancellationToken));
+        if (row is null)
+        {
+            // Do not reveal whether the account exists.
+            return new RequestOtpResponse("If this account exists, a code has been sent.", null);
+        }
+
+        // Invalidate any previous unused OTPs for this purpose.
+        const string invalidateSql = @"
+update auth.otp_codes set is_used = true
+where user_id = @UserId and purpose = @Purpose and is_used = false";
+        await connection.ExecuteAsync(new CommandDefinition(invalidateSql, new { row.UserId, Purpose = request.Purpose }, cancellationToken: cancellationToken));
+
+        var code = Random.Shared.Next(100000, 999999).ToString();
+        var codeHash = BCrypt.Net.BCrypt.HashPassword(code);
+
+        const string insertSql = @"
+insert into auth.otp_codes (otp_code_id, user_id, purpose, code_hash, expires_at_utc, is_used, created_at_utc)
+values (gen_random_uuid(), @UserId, @Purpose, @CodeHash, @ExpiresAtUtc, false, now())";
+
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
+        {
+            row.UserId,
+            Purpose = request.Purpose,
+            CodeHash = codeHash,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15)
+        }, cancellationToken: cancellationToken));
+
+        // In production: send code via SMS/email. In dev: return it in response.
+        return new RequestOtpResponse("Code issued (dev mode – code returned directly).", code);
+    }
+
+    public async Task ResetPasswordWithOtpAsync(ResetPasswordWithOtpRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string userSql = @"
+select u.user_id as UserId
+from auth.users u
+where lower(u.email) = lower(@Value) or u.phone = @Value";
+        var row = await connection.QuerySingleOrDefaultAsync<UserIdRow>(new CommandDefinition(userSql, new { Value = request.EmailOrPhone }, cancellationToken: cancellationToken));
+        if (row is null)
+        {
+            throw new InvalidOperationException("Account not found.");
+        }
+
+        const string otpSql = @"
+select otp_code_id as OtpCodeId, code_hash as CodeHash
+from auth.otp_codes
+where user_id = @UserId and purpose = 'RESET_PASSWORD' and is_used = false and expires_at_utc > now()
+order by created_at_utc desc
+limit 1";
+        var otp = await connection.QuerySingleOrDefaultAsync<OtpRow>(new CommandDefinition(otpSql, new { row.UserId }, cancellationToken: cancellationToken));
+        if (otp is null || !BCrypt.Net.BCrypt.Verify(request.Code, otp.CodeHash))
+        {
+            throw new InvalidOperationException("Invalid or expired code.");
+        }
+
+        const string markUsedSql = "update auth.otp_codes set is_used = true where otp_code_id = @OtpCodeId";
+        await connection.ExecuteAsync(new CommandDefinition(markUsedSql, new { otp.OtpCodeId }, cancellationToken: cancellationToken));
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        const string updateSql = "update auth.users set password_hash = @Hash, updated_at_utc = now() where user_id = @UserId";
+        await connection.ExecuteAsync(new CommandDefinition(updateSql, new { Hash = hash, row.UserId }, cancellationToken: cancellationToken));
+    }
+
     public async Task<AuthUserProfileResponse?> GetMeAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -197,6 +273,8 @@ values (@RefreshTokenId, @UserId, @Token, @ExpiresAtUtc, false, now())";
 
     private sealed record LoginRow(Guid UserId, string FullName, string Email, string PasswordHash, string RoleCode);
     private sealed record RefreshRow(Guid UserId, string FullName, string Email, string RoleCode);
+    private sealed record UserIdRow(Guid UserId);
+    private sealed record OtpRow(Guid OtpCodeId, string CodeHash);
 }
 
 public sealed class SellerProfileService : ISellerProfileService
@@ -295,40 +373,91 @@ public sealed partial class ListingService : IListingService
 
     public ListingService(IDbConnectionFactory connectionFactory) => _connectionFactory = connectionFactory;
 
-    public async Task<IReadOnlyList<ListingSummaryResponse>> BrowseAsync(string? search, int? regionId, int? categoryId, CancellationToken cancellationToken)
+    public async Task<PagedResult<ListingSummaryResponse>> BrowseAsync(BrowseListingsRequest request, CancellationToken cancellationToken)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-    select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
-           l.title as Title, l.description as Description, l.price as Price,
-           l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
-             l.expires_at_utc as ExpiresAtUtc,
-             img.image_url as PrimaryImageUrl
+
+        var sortClause = request.SortBy?.ToUpperInvariant() switch
+        {
+            "PRICE_ASC"  => "l.price asc",
+            "PRICE_DESC" => "l.price desc",
+            "NEWEST"     => "l.created_at_utc desc",
+            _            => "l.created_at_utc desc"
+        };
+
+        var countSql = @$"
+select count(1)
 from marketplace.listings l
-    inner join auth.users su on su.user_id = l.seller_user_id
+inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
+where ls.status_code = 'PUBLISHED'
+  and (@Search is null or l.title ilike '%' || @Search || '%' or l.description ilike '%' || @Search || '%')
+  and (@RegionId is null or l.region_id = @RegionId)
+  and (@DistrictId is null or l.district_id = @DistrictId)
+  and (@CategoryId is null or l.category_id = @CategoryId)
+  and (@ProductTypeId is null or l.product_type_id = @ProductTypeId)
+  and (@MinPrice is null or l.price >= @MinPrice)
+  and (@MaxPrice is null or l.price <= @MaxPrice)
+  and (@IsLivestock is null or l.is_livestock = @IsLivestock)";
+
+        var dataSql = @$"
+select l.listing_id as ListingId, l.seller_user_id as SellerUserId, su.full_name as SellerName,
+       l.title as Title, l.description as Description, l.price as Price,
+       l.quantity as Quantity, u.unit_name as UnitName, ls.status_code as StatusCode, l.created_at_utc as CreatedAtUtc,
+       l.expires_at_utc as ExpiresAtUtc, img.image_url as PrimaryImageUrl
+from marketplace.listings l
+inner join auth.users su on su.user_id = l.seller_user_id
 inner join catalog.units u on u.unit_id = l.unit_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
 left join lateral (
-        select li.image_url
-        from marketplace.listing_images li
-        where li.listing_id = l.listing_id
-        order by li.is_primary desc, li.sort_order asc, li.created_at_utc asc
-        limit 1
+    select li.image_url
+    from marketplace.listing_images li
+    where li.listing_id = l.listing_id
+    order by li.is_primary desc, li.sort_order asc, li.created_at_utc asc
+    limit 1
 ) img on true
 where ls.status_code = 'PUBLISHED'
   and (@Search is null or l.title ilike '%' || @Search || '%' or l.description ilike '%' || @Search || '%')
   and (@RegionId is null or l.region_id = @RegionId)
+  and (@DistrictId is null or l.district_id = @DistrictId)
   and (@CategoryId is null or l.category_id = @CategoryId)
-order by l.created_at_utc desc";
+  and (@ProductTypeId is null or l.product_type_id = @ProductTypeId)
+  and (@MinPrice is null or l.price >= @MinPrice)
+  and (@MaxPrice is null or l.price <= @MaxPrice)
+  and (@IsLivestock is null or l.is_livestock = @IsLivestock)
+order by {sortClause}
+offset @Offset limit @PageSize";
 
-        var rows = await connection.QueryAsync<ListingSummaryResponse>(new CommandDefinition(sql, new
+        var pageSize  = Math.Clamp(request.PageSize, 1, 100);
+        var page      = Math.Max(1, request.Page);
+        var offset    = (page - 1) * pageSize;
+        var p = new
         {
-            Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
-            RegionId = regionId,
-            CategoryId = categoryId
-        }, cancellationToken: cancellationToken));
+            Search      = string.IsNullOrWhiteSpace(request.Search) ? null : request.Search.Trim(),
+            request.RegionId,
+            request.DistrictId,
+            request.CategoryId,
+            request.ProductTypeId,
+            request.MinPrice,
+            request.MaxPrice,
+            request.IsLivestock,
+            Offset      = offset,
+            PageSize    = pageSize
+        };
 
-        return rows.ToList();
+        var totalCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(countSql, p, cancellationToken: cancellationToken));
+        var rows = (await connection.QueryAsync<ListingSummaryResponse>(new CommandDefinition(dataSql, p, cancellationToken: cancellationToken))).ToList();
+        var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling((double)totalCount / pageSize);
+
+        return new PagedResult<ListingSummaryResponse>(rows, totalCount, page, pageSize, totalPages);
+    }
+
+    public async Task TrackViewAsync(Guid listingId, Guid? viewerUserId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+insert into marketplace.listing_views (listing_view_id, listing_id, viewer_user_id, viewed_at_utc)
+values (gen_random_uuid(), @ListingId, @ViewerUserId, now())";
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { ListingId = listingId, ViewerUserId = viewerUserId }, cancellationToken: cancellationToken));
     }
 
     public async Task<Guid> CreateAsync(Guid sellerUserId, CreateListingRequest request, CancellationToken cancellationToken)
@@ -820,8 +949,13 @@ values (gen_random_uuid(), @EnquiryId, @StatusCode, @Note, @SellerUserId, now())
 public sealed class NotificationService : INotificationService
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IPushNotificationService _push;
 
-    public NotificationService(IDbConnectionFactory connectionFactory) => _connectionFactory = connectionFactory;
+    public NotificationService(IDbConnectionFactory connectionFactory, IPushNotificationService push)
+    {
+        _connectionFactory = connectionFactory;
+        _push = push;
+    }
 
     public async Task<IReadOnlyList<NotificationResponse>> GetMyNotificationsAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -843,6 +977,26 @@ update messaging.notifications
 set is_read = true
 where user_id = @UserId and is_read = false";
         await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task CreateNotificationAsync(Guid userId, string title, string body, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+insert into messaging.notifications (notification_id, user_id, title, body, is_read, created_at_utc)
+values (gen_random_uuid(), @UserId, @Title, @Body, false, now())";
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId, Title = title, Body = body }, cancellationToken: cancellationToken));
+        await _push.SendToUserAsync(userId, title, body, cancellationToken);
+    }
+
+    public async Task RegisterDeviceTokenAsync(Guid userId, RegisterDeviceTokenRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+insert into messaging.device_tokens (device_token_id, user_id, platform, token, is_active, created_at_utc)
+values (gen_random_uuid(), @UserId, @Platform, @Token, true, now())
+on conflict (user_id, token) do update set is_active = true";
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId, Platform = request.Platform, Token = request.Token }, cancellationToken: cancellationToken));
     }
 }
 
@@ -899,6 +1053,18 @@ order by product_type_name";
         using var connection = _connectionFactory.CreateConnection();
         const string sql = "select unit_id as Id, unit_code as Code, unit_name as Name from catalog.units order by unit_name";
         var rows = await connection.QueryAsync<ReferenceItemResponse>(new CommandDefinition(sql, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<ShippingMethodResponse>> GetShippingMethodsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+select shipping_method_id as ShippingMethodId, method_code as MethodCode, method_name as MethodName, description as Description
+from catalog.shipping_methods
+where is_active = true
+order by sort_order, method_name";
+        var rows = await connection.QueryAsync<ShippingMethodResponse>(new CommandDefinition(sql, cancellationToken: cancellationToken));
         return rows.ToList();
     }
 }

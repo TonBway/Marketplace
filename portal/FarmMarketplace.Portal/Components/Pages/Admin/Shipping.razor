@@ -1,0 +1,27 @@
+@page "/admin/shipping"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Shipping Methods</MudText>
+
+<MudTable Items="_methods" Dense="true" Hover="true">
+    <HeaderContent>
+        <MudTh>Code</MudTh>
+        <MudTh>Name</MudTh>
+        <MudTh>Description</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd><MudChip T="string" Size="Size.Small">@context.MethodCode</MudChip></MudTd>
+        <MudTd>@context.MethodName</MudTd>
+        <MudTd>@context.Description</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<ShippingMethodVm> _methods = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _methods = await ApiClient.GetShippingMethodsAsync(CancellationToken.None);
+    }
+}

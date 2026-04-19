@@ -41,3 +41,36 @@ public sealed class UpsertPlanVm
 }
 public sealed record AdminReferenceItemVm(int Id, string Code, string Name, bool IsActive);
 public sealed record UpsertReferenceItemVm(string? Code, string Name);
+
+// ── New feature models ────────────────────────────────────────────────────────
+
+public sealed record OrderVm(
+    Guid OrderId, Guid? EnquiryId,
+    Guid BuyerUserId, string BuyerName,
+    Guid SellerUserId, string SellerName,
+    Guid ListingId, string ListingTitle,
+    decimal Quantity, decimal UnitPrice, decimal TotalAmount,
+    int? ShippingMethodId, string? ShippingMethodName, decimal ShippingCost,
+    string OrderStatus, string? BuyerNotes, string? SellerNotes,
+    DateTime CreatedAtUtc, DateTime? UpdatedAtUtc);
+
+public sealed record ReviewVm(
+    Guid ReviewId, Guid ListingId,
+    Guid ReviewerUserId, string ReviewerName,
+    int Rating, string? Comment, DateTime CreatedAtUtc);
+
+public sealed record SellerRatingSummaryVm(double AverageRating, int TotalReviews, IReadOnlyList<ReviewVm> RecentReviews);
+
+public sealed record AnalyticsSummaryVm(
+    int NewSellersThisMonth, int NewBuyersThisMonth, int NewListingsThisMonth,
+    int TotalOrdersThisMonth, decimal TotalRevenueThisMonth,
+    IReadOnlyList<DailyActivityVm> DailyActivity);
+
+public sealed record DailyActivityVm(DateOnly Date, int NewListings, int NewEnquiries, int NewOrders);
+
+public sealed record ListingAnalyticsVm(
+    Guid ListingId, string Title,
+    int ViewCount, int FavoriteCount, int EnquiryCount, int OrderCount, decimal TotalRevenue);
+
+public sealed record ShippingMethodVm(int ShippingMethodId, string MethodCode, string MethodName, string? Description);
+

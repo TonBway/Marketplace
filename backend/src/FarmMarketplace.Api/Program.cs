@@ -67,6 +67,12 @@ try
     builder.Services.AddScoped<IDashboardService, DashboardService>();
     builder.Services.AddScoped<IAdminPortalService, AdminPortalService>();
     builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+    builder.Services.AddScoped<IPushNotificationService, LocalPushNotificationService>();
+    builder.Services.AddScoped<IShippingService, ShippingService>();
+    builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IReviewService, ReviewService>();
+    builder.Services.AddScoped<IMessagingService, MessagingService>();
+    builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
     var app = builder.Build();
 

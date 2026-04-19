@@ -1,0 +1,68 @@
+@page "/admin/orders"
+@attribute [Authorize(Roles = "ADMIN,SUPER_ADMIN")]
+@inject PortalApiClient ApiClient
+
+<MudText Typo="Typo.h4" Class="fm-page-title mb-4">Orders Management</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudSelect T="string" @bind-Value="_statusFilter" Label="Filter by Status" Clearable="true" Class="mb-2">
+        <MudSelectItem Value="@("PENDING")">Pending</MudSelectItem>
+        <MudSelectItem Value="@("CONFIRMED")">Confirmed</MudSelectItem>
+        <MudSelectItem Value="@("DISPATCHED")">Dispatched</MudSelectItem>
+        <MudSelectItem Value="@("DELIVERED")">Delivered</MudSelectItem>
+        <MudSelectItem Value="@("CANCELLED")">Cancelled</MudSelectItem>
+    </MudSelect>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Filter</MudButton>
+</MudPaper>
+
+<MudTable Items="_orders" Dense="true" Hover="true" RowsPerPage="20">
+    <HeaderContent>
+        <MudTh>Order ID</MudTh>
+        <MudTh>Buyer</MudTh>
+        <MudTh>Seller</MudTh>
+        <MudTh>Listing</MudTh>
+        <MudTh>Qty</MudTh>
+        <MudTh>Total</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.OrderId.ToString()[..8]…</MudTd>
+        <MudTd>@context.BuyerName</MudTd>
+        <MudTd>@context.SellerName</MudTd>
+        <MudTd>@context.ListingTitle</MudTd>
+        <MudTd>@context.Quantity</MudTd>
+        <MudTd>@context.TotalAmount.ToString("C")</MudTd>
+        <MudTd><StatusBadge Status="@context.OrderStatus" /></MudTd>
+        <MudTd>@context.CreatedAtUtc.ToLocalTime().ToString("d")</MudTd>
+        <MudTd>
+            <MudSelect T="string" Label="Set Status" Value="@context.OrderStatus"
+                       ValueChanged="@(s => UpdateStatusAsync(context.OrderId, s))" Dense="true">
+                <MudSelectItem Value="@("PENDING")">Pending</MudSelectItem>
+                <MudSelectItem Value="@("CONFIRMED")">Confirmed</MudSelectItem>
+                <MudSelectItem Value="@("DISPATCHED")">Dispatched</MudSelectItem>
+                <MudSelectItem Value="@("DELIVERED")">Delivered</MudSelectItem>
+                <MudSelectItem Value="@("CANCELLED")">Cancelled</MudSelectItem>
+            </MudSelect>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IReadOnlyList<OrderVm> _orders = [];
+    private string? _statusFilter;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _orders = await ApiClient.GetAdminOrdersAsync(_statusFilter, CancellationToken.None);
+    }
+
+    private async Task UpdateStatusAsync(Guid orderId, string statusCode)
+    {
+        await ApiClient.UpdateOrderStatusAsync(orderId, statusCode, "Admin portal action", CancellationToken.None);
+        await LoadAsync();
+    }
+}

@@ -1,5 +1,6 @@
 using FarmMarketplace.Application.Interfaces;
 using FarmMarketplace.Contracts.Reference;
+using FarmMarketplace.Contracts.Shipping;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FarmMarketplace.Api.Controllers;
@@ -40,5 +41,11 @@ public sealed class ReferenceDataController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ReferenceItemResponse>>> Units(CancellationToken cancellationToken)
     {
         return Ok(await _service.GetUnitsAsync(cancellationToken));
+    }
+
+    [HttpGet("shipping-methods")]
+    public async Task<ActionResult<IReadOnlyList<ShippingMethodResponse>>> ShippingMethods(CancellationToken cancellationToken)
+    {
+        return Ok(await _service.GetShippingMethodsAsync(cancellationToken));
     }
 }

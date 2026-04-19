@@ -2,6 +2,7 @@ using FarmMarketplace.Api.Extensions;
 using FarmMarketplace.Api.Options;
 using FarmMarketplace.Application.Interfaces;
 using FarmMarketplace.Contracts.Listings;
+using FarmMarketplace.Contracts.Shipping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -28,13 +29,11 @@ public sealed class ListingsController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IReadOnlyList<ListingSummaryResponse>>> Browse(
-        [FromQuery] string? search,
-        [FromQuery] int? regionId,
-        [FromQuery] int? categoryId,
+    public async Task<ActionResult<PagedResult<ListingSummaryResponse>>> Browse(
+        [FromQuery] BrowseListingsRequest request,
         CancellationToken cancellationToken)
     {
-        var listings = await _service.BrowseAsync(search, regionId, categoryId, cancellationToken);
+        var listings = await _service.BrowseAsync(request, cancellationToken);
         return Ok(listings);
     }
 
@@ -44,7 +43,24 @@ public sealed class ListingsController : ControllerBase
     {
         var listing = await _service.GetPublicAsync(listingId, cancellationToken);
         if (listing is null) return NotFound();
+        _ = _service.TrackViewAsync(listingId, null, cancellationToken);
         return Ok(listing);
+    }
+
+    [HttpGet("{listingId:guid}/shipping")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<ListingShippingOptionResponse>>> GetShipping(Guid listingId, CancellationToken cancellationToken)
+    {
+        var options = await _service.GetShippingOptionsAsync(listingId, cancellationToken);
+        return Ok(options);
+    }
+
+    [HttpPut("{listingId:guid}/shipping")]
+    [Authorize(Roles = "SELLER")]
+    public async Task<IActionResult> UpsertShipping(Guid listingId, [FromBody] UpsertListingShippingOptionsRequest request, CancellationToken cancellationToken)
+    {
+        await _service.UpsertShippingOptionsAsync(User.GetRequiredUserId(), listingId, request, cancellationToken);
+        return NoContent();
     }
 
     [HttpPost]
