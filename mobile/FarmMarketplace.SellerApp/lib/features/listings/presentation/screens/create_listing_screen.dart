@@ -548,14 +548,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     .toList(),
                 onChanged: (value) => setState(() => _districtId = value),
               ),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _isLivestock,
-                title: const Text('Is Livestock'),
-                subtitle: const Text('Toggle if this listing is livestock.'),
-                onChanged: (value) => setState(() => _isLivestock = value),
-              ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _saving ? null : _submit,

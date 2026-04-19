@@ -631,17 +631,6 @@ class _EditListingScreenState extends ConsumerState<EditListingScreen> {
                     .toList(),
                 onChanged: (v) => setState(() => _districtId = v),
               ),
-              const SizedBox(height: 10),
-
-              // ── Is Livestock ─────────────────────────────────────────────
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _isLivestock,
-                title: const Text('Is Livestock'),
-                subtitle:
-                    const Text('Toggle if this listing is livestock.'),
-                onChanged: (v) => setState(() => _isLivestock = v),
-              ),
               const SizedBox(height: 16),
 
               FilledButton(
