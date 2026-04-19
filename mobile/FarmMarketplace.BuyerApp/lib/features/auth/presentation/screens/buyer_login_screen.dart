@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
 import '../../../auth/data/auth_notifier.dart';
 import 'buyer_register_screen.dart';
@@ -42,6 +43,86 @@ class _BuyerLoginScreenState extends ConsumerState<BuyerLoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
     );
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final accountCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Forgot Password'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: accountCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'Email or Phone',
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Email or phone is required' : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: newPasswordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(hintText: 'New password'),
+                validator: (v) => (v == null || v.length < 8)
+                    ? 'Password must be at least 8 characters'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: confirmPasswordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(hintText: 'Confirm password'),
+                validator: (v) => v != newPasswordCtrl.text
+                    ? 'Passwords do not match'
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                await ref.read(apiClientProvider).dio.post(
+                  '/api/auth/forgot-password',
+                  data: {
+                    'emailOrPhone': accountCtrl.text.trim(),
+                    'newPassword': newPasswordCtrl.text,
+                  },
+                );
+                if (!mounted) return;
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password reset successful. Please sign in.')),
+                );
+              } catch (e) {
+                if (mounted) showErrorSnackBar(context, e);
+              }
+            },
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
+
+    accountCtrl.dispose();
+    newPasswordCtrl.dispose();
+    confirmPasswordCtrl.dispose();
   }
 
   @override
@@ -129,6 +210,13 @@ class _BuyerLoginScreenState extends ConsumerState<BuyerLoginScreen> {
                         ),
                         validator: (v) =>
                             (v == null || v.isEmpty) ? 'Password is required' : null,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: isLoading ? null : _showForgotPasswordDialog,
+                          child: const Text('Forgot Password?'),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Row(

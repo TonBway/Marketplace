@@ -13,8 +13,24 @@ class BuyerFavoritesScreen extends ConsumerStatefulWidget {
 }
 
 class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
+  static const _apiBaseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.88.20:5000');
+
   final List<Map<String, dynamic>> _favorites = [];
   bool _isLoading = true;
+
+  String? _resolveImageUrl(dynamic rawUrl) {
+    final value = rawUrl?.toString().trim() ?? '';
+    if (value.isEmpty) return null;
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    final base = _apiBaseUrl.endsWith('/')
+        ? _apiBaseUrl.substring(0, _apiBaseUrl.length - 1)
+        : _apiBaseUrl;
+    final path = value.startsWith('/') ? value : '/$value';
+    return '$base$path';
+  }
 
   @override
   void initState() {
@@ -119,6 +135,7 @@ class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final favorite = _favorites[index];
+          final imageUrl = _resolveImageUrl(favorite['primaryImageUrl']);
           return Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: ListTile(
@@ -130,7 +147,18 @@ class _BuyerFavoritesScreenState extends ConsumerState<BuyerFavoritesScreen> {
                   color: const Color(0xFFF3F5F8),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Center(child: Text('🍎', style: TextStyle(fontSize: 24))),
+                child: imageUrl == null
+                    ? const Center(child: Text('🍎', style: TextStyle(fontSize: 24)))
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Text('🍎', style: TextStyle(fontSize: 24)),
+                          ),
+                        ),
+                      ),
               ),
               title: Text(favorite['title'] ?? 'Product'),
               subtitle: Text('SCR ${favorite['price'] ?? 0} / ${favorite['unitName'] ?? 'unit'}'),

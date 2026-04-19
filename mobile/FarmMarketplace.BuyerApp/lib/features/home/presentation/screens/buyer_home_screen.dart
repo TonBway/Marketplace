@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers.dart';
@@ -8,6 +10,7 @@ import '../../../profile/presentation/screens/buyer_profile_screen.dart';
 import '../../../search/presentation/screens/buyer_search_screen.dart';
 import '../../../favorites/presentation/screens/buyer_favorites_screen.dart';
 import '../../../enquiries/presentation/screens/buyer_sent_enquiries_screen.dart';
+import 'buyer_notifications_screen.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -20,6 +23,8 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   int _index = 0;
   Map<String, dynamic>? _summary;
   bool _loadingSummary = true;
+  int _unreadNotifications = 0;
+  Timer? _notificationTimer;
 
   final _screens = const [
     BuyerSearchScreen(),
@@ -32,6 +37,16 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   void initState() {
     super.initState();
     _loadSummary();
+    _loadNotificationCount();
+    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadNotificationCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadSummary() async {
@@ -51,6 +66,37 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
         setState(() => _loadingSummary = false);
       }
     }
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (isGuest) {
+        if (mounted) setState(() => _unreadNotifications = 0);
+        return;
+      }
+
+      final response = await ref.read(apiClientProvider).dio.get('/api/notifications/my');
+      final rows = (response.data as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+      final unread = rows.where((n) => !(n['isRead'] == true || n['is_read'] == true)).length;
+      if (mounted) {
+        setState(() => _unreadNotifications = unread);
+      }
+    } catch (_) {
+      // Keep UI usable.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const BuyerNotificationsScreen(),
+      ),
+    );
+    await _loadNotificationCount();
   }
 
   Widget _buildSummaryCard() {
@@ -155,7 +201,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
           _DrawerItem(
             icon: Icons.notifications_none_rounded,
             label: 'Notifications',
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              Navigator.of(context).pop();
+              _openNotifications();
+            },
           ),
           const Divider(),
           if (isGuest)
@@ -209,8 +258,33 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
         actions: [
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: _openNotifications,
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded),
+                if (_unreadNotifications > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _unreadNotifications > 99 ? '99+' : '$_unreadNotifications',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),

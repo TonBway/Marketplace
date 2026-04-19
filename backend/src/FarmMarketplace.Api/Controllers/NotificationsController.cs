@@ -21,4 +21,11 @@ public sealed class NotificationsController : ControllerBase
         var notifications = await _service.GetMyNotificationsAsync(User.GetRequiredUserId(), cancellationToken);
         return Ok(notifications);
     }
+
+    [HttpPatch("my/read-all")]
+    public async Task<IActionResult> ReadAll(CancellationToken cancellationToken)
+    {
+        await _service.MarkAllAsReadAsync(User.GetRequiredUserId(), cancellationToken);
+        return NoContent();
+    }
 }

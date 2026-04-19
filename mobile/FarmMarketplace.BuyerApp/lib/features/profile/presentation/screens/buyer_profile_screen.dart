@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/app_error_handler.dart';
 import '../../../../core/providers.dart';
 
 class BuyerProfileScreen extends ConsumerStatefulWidget {
@@ -23,8 +24,41 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
     try {
-      // TODO: Implement API call to load buyer profile
-      await Future.delayed(const Duration(seconds: 1));
+      final auth = ref.read(authNotifierProvider).valueOrNull;
+      final isGuest = auth?.isGuest ?? true;
+      if (isGuest) {
+        setState(() => _profile = null);
+        return;
+      }
+
+      final meResp = await ref.read(apiClientProvider).dio.get('/api/auth/me');
+      Map<String, dynamic>? buyerProfile;
+      Map<String, dynamic>? summary;
+
+      try {
+        final pResp = await ref.read(apiClientProvider).dio.get('/api/buyer/profile/me');
+        buyerProfile = (pResp.data as Map).cast<String, dynamic>();
+      } catch (_) {
+        // Buyer profile may not exist yet.
+      }
+
+      try {
+        final sResp = await ref.read(apiClientProvider).dio.get('/api/dashboard/buyer-summary');
+        summary = (sResp.data as Map).cast<String, dynamic>();
+      } catch (_) {
+        // Keep profile usable even if summary fails.
+      }
+
+      final me = (meResp.data as Map).cast<String, dynamic>();
+      setState(() {
+        _profile = {
+          ...me,
+          if (buyerProfile != null) ...buyerProfile,
+          if (summary != null) ...summary,
+        };
+      });
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, e);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -69,12 +103,12 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  profile?['fullName'] ?? auth?.fullName ?? 'Buyer',
+                  profile?['fullName'] ?? auth?.fullName ?? profile?['displayName'] ?? 'Buyer',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  profile?['email'] ?? 'email@example.com',
+                  profile?['email'] ?? 'buyer@farmmarketplace.local',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
                 ),
                 if (isGuest)
@@ -107,8 +141,9 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-                  _ProfileRow(label: 'Phone', value: '${profile?['phone'] ?? 'N/A'}'),
-                  _ProfileRow(label: 'Email', value: '${profile?['email'] ?? 'N/A'}'),
+                  _ProfileRow(label: 'Phone', value: '${profile?['phone'] ?? '-'}'),
+                  _ProfileRow(label: 'Email', value: '${profile?['email'] ?? '-'}'),
+                  _ProfileRow(label: 'Display Name', value: '${profile?['displayName'] ?? profile?['fullName'] ?? '-'}'),
                   _ProfileRow(label: 'Credits', value: '${profile?['availableCredits'] ?? 0}'),
                 ],
               ),

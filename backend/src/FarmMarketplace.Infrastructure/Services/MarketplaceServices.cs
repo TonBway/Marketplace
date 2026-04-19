@@ -109,6 +109,47 @@ where rt.token = @Token and rt.is_revoked = false and rt.expires_at_utc > now()"
         return await IssueTokensAsync(row.UserId, row.FullName, row.Email, row.RoleCode, cancellationToken);
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+update auth.users
+set password_hash = @PasswordHash,
+    updated_at_utc = now()
+where lower(email) = lower(@Value) or phone = @Value";
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Value = request.EmailOrPhone,
+            PasswordHash = hash
+        }, cancellationToken: cancellationToken));
+
+        if (affected == 0)
+        {
+            throw new InvalidOperationException("Account not found.");
+        }
+    }
+
+    public async Task<AuthUserProfileResponse?> GetMeAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+select u.user_id as UserId,
+       u.full_name as FullName,
+       u.email as Email,
+       u.phone as Phone,
+       r.role_code as RoleCode
+from auth.users u
+inner join auth.roles r on r.role_id = u.role_id
+where u.user_id = @UserId";
+
+        return await connection.QuerySingleOrDefaultAsync<AuthUserProfileResponse>(
+            new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
+    }
+
     private async Task<AuthResponse> IssueTokensAsync(Guid userId, string fullName, string email, string roleCode, CancellationToken cancellationToken)
     {
         var accessTokenMinutes = _configuration.GetValue<int?>("Jwt:AccessTokenMinutes") ?? 60;
@@ -744,6 +785,24 @@ insert into messaging.enquiry_status_history (enquiry_status_history_id, enquiry
 values (gen_random_uuid(), @EnquiryId, @StatusCode, @Note, @SellerUserId, now())";
         await connection.ExecuteAsync(new CommandDefinition(historySql, new { EnquiryId = enquiryId, StatusCode = request.StatusCode, request.Note, SellerUserId = sellerUserId }, cancellationToken: cancellationToken));
 
+        const string notificationSql = @"
+    insert into messaging.notifications (notification_id, user_id, title, body, is_read, created_at_utc)
+    select gen_random_uuid(),
+           e.buyer_user_id,
+           'Enquiry update',
+           'Your enquiry for ""' || l.title || '"" is now ' || replace(lower(@StatusCode), '_', ' ') || '.',
+           false,
+           now()
+    from messaging.enquiries e
+    inner join marketplace.listings l on l.listing_id = e.listing_id
+    where e.enquiry_id = @EnquiryId and e.seller_user_id = @SellerUserId";
+        await connection.ExecuteAsync(new CommandDefinition(notificationSql, new
+        {
+            EnquiryId = enquiryId,
+            SellerUserId = sellerUserId,
+            request.StatusCode
+        }, cancellationToken: cancellationToken));
+
         const string auditSql = @"
     insert into audit.audit_logs (audit_log_id, actor_user_id, action, entity_type, entity_id, payload, occurred_at_utc)
     values (gen_random_uuid(), @ActorUserId, @Action, @EntityType, @EntityId, @Payload::jsonb, now())";
@@ -774,6 +833,16 @@ where user_id = @UserId
 order by created_at_utc desc";
         var rows = await connection.QueryAsync<NotificationResponse>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
         return rows.ToList();
+    }
+
+    public async Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+update messaging.notifications
+set is_read = true
+where user_id = @UserId and is_read = false";
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
     }
 }
 
