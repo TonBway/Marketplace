@@ -63,7 +63,7 @@ select
       limit 1
     ) as SubscriptionStatus,
     (
-      select count(1)
+            select count(1)::int
       from marketplace.listings l
       inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id
       where l.seller_user_id = u.user_id and ls.status_code = 'PUBLISHED'
@@ -97,8 +97,8 @@ select
     sp.district_id as DistrictId,
     sp.contact_mode as ContactMode,
     sp.profile_image_url as ProfileImageUrl,
-    (select count(1) from marketplace.listings l where l.seller_user_id = u.user_id) as TotalListings,
-    (select count(1) from messaging.enquiries e where e.seller_user_id = u.user_id) as TotalEnquiries,
+    (select count(1)::int from marketplace.listings l where l.seller_user_id = u.user_id) as TotalListings,
+    (select count(1)::int from messaging.enquiries e where e.seller_user_id = u.user_id) as TotalEnquiries,
     u.created_at_utc as CreatedAtUtc
 from auth.users u
 inner join auth.roles r on r.role_id = u.role_id and r.role_code = 'SELLER'
@@ -119,12 +119,12 @@ select
     u.phone as Phone,
     u.is_active as IsActive,
     (
-      select count(1)
+            select count(1)::int
       from marketplace.listing_favorites f
       where f.buyer_user_id = u.user_id
     ) as FavoritesCount,
     (
-      select count(1)
+            select count(1)::int
       from messaging.enquiries e
       where e.buyer_user_id = u.user_id
     ) as EnquiryCount,
@@ -153,8 +153,8 @@ select
     bp.district_id as DistrictId,
     coalesce(bp.receive_sms, false) as ReceiveSms,
     coalesce(bp.receive_push, false) as ReceivePush,
-    (select count(1) from marketplace.listing_favorites f where f.buyer_user_id = u.user_id) as FavoritesCount,
-    (select count(1) from messaging.enquiries e where e.buyer_user_id = u.user_id) as EnquiryCount,
+    (select count(1)::int from marketplace.listing_favorites f where f.buyer_user_id = u.user_id) as FavoritesCount,
+    (select count(1)::int from messaging.enquiries e where e.buyer_user_id = u.user_id) as EnquiryCount,
     u.created_at_utc as CreatedAtUtc
 from auth.users u
 inner join auth.roles r on r.role_id = u.role_id and r.role_code = 'BUYER'
@@ -189,8 +189,8 @@ select l.listing_id as ListingId, l.title as Title, l.description as Description
        l.price as Price, l.quantity as Quantity, l.unit_id as UnitId, l.region_id as RegionId,
        l.district_id as DistrictId, ls.status_code as StatusCode, l.is_livestock as IsLivestock,
        l.created_at_utc as CreatedAtUtc, l.expires_at_utc as ExpiresAtUtc,
-       (select count(1) from messaging.enquiries e where e.listing_id = l.listing_id) as EnquiryCount,
-       (select count(1) from marketplace.listing_views v where v.listing_id = l.listing_id) as ViewCount
+    (select count(1)::int from messaging.enquiries e where e.listing_id = l.listing_id) as EnquiryCount,
+    (select count(1)::int from marketplace.listing_views v where v.listing_id = l.listing_id) as ViewCount
 from marketplace.listings l
 inner join auth.users u on u.user_id = l.seller_user_id
 inner join catalog.listing_statuses ls on ls.listing_status_id = l.listing_status_id

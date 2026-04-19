@@ -12,6 +12,11 @@
             <MudNavLink Href="/admin/enquiries" ForceLoad="true" Icon="@Icons.Material.Filled.QuestionAnswer">Enquiries</MudNavLink>
             <MudNavLink Href="/admin/reference" ForceLoad="true" Icon="@Icons.Material.Filled.Category">Reference Data</MudNavLink>
             <MudNavLink Href="/admin/audit" ForceLoad="true" Icon="@Icons.Material.Filled.FactCheck">Audit</MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SUPER_ADMIN">
+        <MudNavGroup Title="Platform" Icon="@Icons.Material.Filled.Tune" Expanded="false">
             <MudNavLink Href="/admin/settings" ForceLoad="true" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
         </MudNavGroup>
     </AuthorizeView>
